@@ -1,0 +1,554 @@
+---
+title: "b02_tidyverse_giris"
+author: "Murat Öztürkmen"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+    number_sections: true
+    code_folding: hide
+    self_contained: true
+    thumbnails: false
+    lightbox: false
+    
+---
+
+```{r setup, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+# Giriş
+
+`Tidyverse`, R'de veri bilimi yapmamıza yardımcı olmak için birlikte oluşturulmuş bir dizi R paketinden başka bir şey değildir. Paketlerin tümü aynı temel tasarım felsefesini, gramerini ve veri yapılarını paylaşır. Bu nedenle, birini öğrenirseniz diğer paketler daha kolay gelir. `Tidyverse` ana paketleri şunlardır:
+
+* **dplyr**: veri işleme için
+* **ggplot2**: veri görselleştirme için
+* **tidyr**: modelleme ve veri yönetimi için
+* **purrr**: fonksiyonel programlama ve kod optimizasyonu için
+* **readr**: veri okuma ve düzenleme için
+
+Burada, çoğunlukla `dplyr`, `readr` ve `tidyr` kullanarak veri yönetiminin güzel dünyasını gözden geçireceğiz. Nasıl çalışılacağını öğrenmeniz gereken şeyler listesine `ggplot2`'yi de eklemenizi şiddetle tavsiye ederim.
+
+`tidyverse` in avantajları:
+
+* Baz R'ye kıyasla veri yönetimini gerçekleştirmek daha kolay
+* Kodunuzun okunabilirliğini artırır
+* Bir dizi kullanışlı paketi iyi entegre eder
+* Bu nedenle, ileri düzey programcılar, gelecekte büyük olasılıkla borular ve `tidyverse` paketlerle dolu bir kod alacaktır.
+
+# Kaynaklar
+
+# Kurulum ve Hazırlık
+
+Kurulum için iki seçenek vardır:
+
+```{r echo=TRUE, eval=FALSE}
+# CRAN'dan kurulum
+install.packages("tidyverse")
+
+# GitHub'dan install.packages('devtools') ile geliştirme versiyonunun kurulumu
+devtools::install_github("hadley/tidyverse")
+```
+
+Kurulumdan sonra kütüphane çağrılabilir. Öncesinde başka kütüphaneler ile çakışan işlevler için ayarlama yapılmalıdır.
+
+```{r echo=TRUE}
+
+library(tidyverse)
+library(conflicted)
+
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+```
+
+
+
+# Boru(pipe) İşlemcisi
+
+`Tidyverse`'teki paketlerin tümü, `magritt` paketinden `%>%` adlı bir kısayol işlemcisini kullanmaya dayanır. **Boru(pipe)** işlemcisi `tidyverse` ile kodlama yaparken senin en iyi arkadaşın olacaktır, bunu unutma.
+
+Boru işlemcisinin arkasında yatan fikir oldukça basittir: Bir şeyleri iç içe geçiriyorsunuz. Buradaki amaç, R'nin kodları içeriden dışarıya nasıl okuduğundan kaçınmaktır.
+
+Boru işlemcisinin olduğu mantık: önce nesne, sonra işlevler ve ardından bir dizi işlev. İşlemci, bir dizi hesaplamayı kolayca zincirlemeyi mümkün kılar.
+
+Örneğin:
+
+```{r echo=TRUE, eval=FALSE}
+# baz R
+round(exp(diff(log(runif(100, 0, 1)))), 1)
+
+# boru işlemcisiyle
+runif(100, 0, 1) %>% 
+  log() %>% 
+  diff() %>% 
+  exp() %>% 
+  round(., 1)  # ya da round(1)
+```
+
+```{r echo=TRUE}
+# data %>% function_tidyverse() %>% lm( y~x, data=. )
+mtcars %>% 
+  lm(mpg ~ cyl, data = .) %>% 
+  coef()
+```
+
+Bir diğer örnek ise grafik çizimi:
+
+```{r echo=TRUE}
+# baz R dizimi ile
+plot(density(rnorm(1000, 0, 1)))
+```
+
+```{r echo=TRUE}
+# boru işlemcisi ile
+rnorm(1000, 0, 1) %>% 
+  density() %>% 
+  plot()
+```
+
+# Veri İşleme İçin `dplyr`
+
+`dplyr` en popüler `tidyverse` paketidir ve veri işleme ve veri yönetimi ile ilgilidir.
+
+## Örnek Verinin Okunması
+
+Çalışma için `results` veriseti ile başlayalım. Veriseti, 1872'den 2018'e kadar tüm uluslararası futbol maçlarının sonuçlarını içermektedir.
+
+```{r echo=TRUE}
+# verinin okunması
+df <- read_csv("data/results.csv")
+# dataframe'in tibble veri çerçevesine dönüştürülmesi
+df <- tbl_df(df)
+df
+```
+
+## Fiil Olarak `dplyr` İşlevleri
+
+`dplyr` paketinden en çok kullanılan işlevler:
+
+* `select()`   : sütunların seçilmesi
+* `mutate()`   : var olan değişkenlerin değiştirilmesi, yeni değişkenler yaratılması
+* `filter()`   : belli kriterlere göre verinin filtrelenmesi
+* `summarize()`: belli bir düzeyde verinin özetlenmesi
+* `group_by()` : veriyi belli bir değişkene göre gruplama
+* `slice()`    : belli satırların alınması
+
+Diğer işlevler:
+
+* `count()`       : verinin sayılması
+* `arrange()`     : bir değişkene göre verinin düzenlenmesi, sıralanması
+* `distinct()`    : bir değişkenin tüm tekil değerlerinin alınması
+* `n_distinct()`  : bir değişkendeki tekil gözlem sayısı (sadece `summarize` işlevi ile çalışır)
+* `n()`           : belli bir altgruptaki gözlem sayısı
+* `sample_n()`    : veri N adet örnek alınması
+* `sampsle_frac()`: veriden belli bir yüzdede örnek alınması
+* `ungroup()`     : gruplanmış bir verinin eski haline getirilmesi
+* `glimpse()`     : veriyi hızlı bir şekilde önizleme
+* `top_n()`       : verinin ilk N adet gözleminin getirilmesi
+
+
+## `select` İşlevi: Sütunların Seçilmesi
+
+```{r echo=TRUE}
+# baz R
+df_old <- df[, c("date", "away_score", "home_score")]
+# dplyr
+df %>% 
+select(., date, home_team, away_team)
+```
+
+```{r echo=TRUE}
+# veya
+df %>% 
+select(., 2:3, -5)
+```
+
+
+## `filter` İşlevi: Satırların Seçilmesi
+
+```{r echo=TRUE}
+conflict_prefer("filter", "dplyr")
+
+# ev sahibi takımın Brezilya olduğu satırlar
+df %>% 
+filter(home_team == "Brazil")
+```
+
+```{r echo=TRUE}
+# baz R
+df[df$home_team == "Brazil", ]
+```
+
+```{r echo=TRUE}
+df %>% 
+filter(home_team == "Brazil", home_score - away_score > 0) %>% 
+select(date, away_team, tournament)
+```
+
+
+## `mutate` İşlevi: Yeni Değişkenler Oluşturma
+
+```{r echo=TRUE}
+# gol farkı alanı olarak dif, gol farkı yüksek ise
+# bunu belirten bir goleada alanı ekleyip Brezilya takımının
+# olduğu maçları filtreleyelim
+
+# burada ifelse işlevinin kullanımına dikkat edin:
+# #ifelse(condition, TRUE, FALSE)
+
+conflict_prefer("filter", "dplyr")
+
+df %>% 
+mutate(dif = abs(away_score - home_score), 
+         goleada = ifelse(dif > 5, "Goleada", "Normal  Result")) %>%
+filter(home_team=="Brazil" | away_team=="Brazil", goleada=="Goleada")
+```
+
+```{r echo=TRUE}
+# baz R 
+df_g <- df
+df_g$dif <- abs(df$home_score - df$away_score)
+df_g$goleada <- ifelse(df_g$dif >5, "Goleada", "NR")
+df_g <- df_g[c(df$home_team=="Brazil" | df$away_team=="Brazil")  &
+      df_g$goleada==1, c("home_team", "away_score", "goleada", "dif")]
+```
+
+
+## `arrange` İşlevi: Verinin Belli Bir Değişkene Göre Sıralanması
+
+```{r echo=TRUE}
+# en büyük gol farkı kaçtır?
+df %>% 
+mutate(dif = abs(away_score - home_score)) %>% 
+arrange(desc(dif)) %>% 
+slice(1)
+```
+
+
+## `slice` İşlevi: Verinin Satırlara Göre Dilimlenmesi
+
+```{r echo=TRUE}
+# en büyük gol farkının olduğu 5 maç
+df %>% 
+mutate(dif = abs(away_score - home_score)) %>% 
+arrange(desc(dif)) %>% 
+slice(1:5)  # burada top_n(5) diğer bir seçenektir 
+```
+
+
+## `group_by` + `summarize` : Gruplar Bazında Özet İstatistikler
+
+İlk aşamada ilgilenilen değişkene göre gruplama yapılır. İkinci aşamada ise yeni istatistiklerle veri özetlenir.
+
+Bazı özet istatistik işlevleri:
+
+* `min(x)` - x vektörünün en küçük değeri.
+* `max(x)` - x vektörünün en büyük değeri.
+* `mean(x)` - x vektörünün ortalaması.
+* `median(x)` - x vektörünün medyanı.
+* `quantile(x, p)` - x vektörünün p-inci kantili.
+* `sd(x)` - x vektörünün standart sapması.
+* `var(x)` - x vektörünün varyansı.
+* `IQR(x)` - x vektörünün IQR değeri. 
+* `diff(range(x))` - x vektörünün genişliği.
+
+```{r echo=TRUE}
+# ev sahibi takımlar tarafından atılan goller için bir veri özeti
+df %>% 
+group_by(home_team) %>% 
+summarise(mean_home_gols = mean(home_score, na.rm = TRUE), sd_home_gols = sd(home_score), 
+            mean_home_gols_op = mean(away_score), count = n()) %>% 
+ungroup() %>% 
+top_n(., 10, wt = mean_home_gols) 
+```
+
+Burada `summarize` işlevinin `mutate` ile aynı olmadığına dikkat edin:
+
+```{r echo=TRUE}
+df %>% 
+group_by(home_team) %>% 
+mutate(mean_home_gols = mean(home_score, na.rm = TRUE), sd_home_gols = sd(home_score), 
+         mean_home_gols_op = mean(away_score), count = n()) %>% ungroup() %>% 
+select(home_team, mean_home_gols) %>% 
+top_n(., 10, wt = mean_home_gols)
+```
+
+
+
+## Diğer Kullanışlı İşlevler
+
+### `glimpse` : Veri Önizleme
+
+```{r echo=TRUE}
+glimpse(df)
+```
+
+
+### `count`
+
+```{r echo=TRUE}
+# grup bazında satır sayısı
+df %>% 
+count(home_team, tournament) %>% 
+arrange(desc(n))
+```
+
+
+### Bazı Yardımcı İşlevler
+
+* `starts_with()`: belli bir önek ile başlayan
+* `ends_with()`: belli bir son ek ile biten
+* `contains()`: belli bir dizgeyi içeren
+* `matches()`: düzenli bir ifade ile eşleşen
+* `num_range()`: x01, x02, x03 gibi bir sayısal değer aralığı
+* `one_of()`: belli karakter vektöründeki değişkenler
+* `everything()`: tüm değişkenler
+
+Başka bir veriseti:
+
+```{r echo=TRUE}
+new_df <- read_csv("data/battles.csv")
+glimpse(new_df)
+```
+
+
+```{r echo=TRUE}
+# seçim 
+new_df %>% 
+  select(name, year, contains("king"), 
+          starts_with("battle")) %>%
+  glimpse()
+```
+
+
+```{r echo=TRUE}
+# yeniden sıralama
+new_df %>% 
+  select(name, year, contains("king"), 
+          starts_with("battle"), everything()) %>%
+  glimpse()
+```
+
+
+```{r echo=TRUE}
+# gerekli olmayan bilginin silinmesi
+new_df %>% 
+  select(name, year, contains("king"), 
+          starts_with("battle"), everything(), 
+         -matches(c("1$|2$|3$|4$"))) %>%
+  glimpse()
+```
+
+
+
+# `readr` ile Verinin Okunması
+
+Verinin ilk olarak doğru formatta okunması oldukça önemlidir. Bunun için `readr` paketindeki işlevleri kullanmak oldukça fayda sağlar.
+
+Verinin okunması için bazı işleevler:
+
+* `read_csv()`  : csv dosyaları
+* `read_tsv()`  : tsv dosyaları
+* `read_delim()`: genel virgülle ayrılmış dosyalar
+* `read_fwf()`  : sabit aralıklı dosyalar
+* `read_table()`: txt dosyaları
+* `read_log()`  : web log dosyaları
+
+`parse_` işlevi ailesi:
+
+* `parse_logical`
+* `parse_integer`
+* `parse_factor`
+* `parse_character`
+* `parse_date`
+
+Bu işlevler, değişkenlerle ilgili tip hatalarını çözmek için oldukça faydalıdır.
+
+```{r echo=TRUE}
+# sayısal
+x <- c("1", "2", "3")
+parse_number(x)
+```
+
+```{r echo=TRUE}
+# karakter
+names <- c("kalem", "silgi", "bez", 3)
+parse_character(names)
+```
+
+```{r echo=TRUE}
+# tarih
+parse_date("30 december 1988", format = "%d %B %y")
+```
+
+```{r echo=TRUE}
+parse_date("30 december 1988", format = "%d %B %Y")
+```
+
+```{r echo=TRUE}
+# daha da ilginci: hatayı kullanıcı için döndürür
+x <- c("1", "2", "3", "tiago")
+parse_number(x)
+```
+
+```{r echo=TRUE}
+# ek olarak
+x <- c("10%", "$1000", "10 reais")
+parse_number(x)
+```
+
+Tüm `parse_*` işlevlerini verisetini okurken `col_*` parametrelerini değiştirerek kullanabiliriz.
+
+```{r echo=TRUE}
+cd_df <- read_csv("data/character-deaths.csv")
+glimpse(cd_df)
+```
+
+Bazı sayısal değerler bu haliyle karakter tipinde geliyor. Bunu düzeltelim:
+
+```{r echo=TRUE}
+cd_df <- read_csv("data/character-deaths.csv", col_types = cols(Death_y = col_number(), 
+    Book_Death = col_number(), Death_Chapter = col_number(), Book_Intro = col_number()))
+glimpse(cd_df)
+```
+
+Sorun var mı kontrol edelim:
+
+```{r echo=TRUE}
+problems(cd_df)
+```
+
+
+Uygun bir çözüm:
+
+```{r echo=TRUE}
+cd_df <- read_csv("data/character-deaths.csv", col_types = cols(Death_y = col_number(), 
+    Book_Death = col_number(), Death_Chapter = col_number(), Book_Intro = col_number()),
+    na = c("", "NA", "na", ".", ","))
+glimpse(cd_df)
+```
+
+
+
+# `tidyR` ile Veri Düzenleme
+
+Geniş boyutlu veriler için `düzenli` kelimesi oldukça sihirli bir kavramdır. Bir verinin aşağıdaki özellikleri sağlıyorsa düzenli olduğu söylenebilir:
+
+* Her değişken kendi sütununda yer alıyorsa.
+* Her gözlem kendi satırında yer alıyorsa.
+
+**Düzensiz bir veri örneği:**
+
+
+```{r echo=FALSE}
+library(dplyr)
+df_untidy <- df %>% select(1:5, tournament) %>% 
+  dplyr::filter(home_team=="Brazil") %>% 
+  mutate(diff=home_score-away_score)%>%
+  spread(key = tournament, value=diff) %>%
+  select(-contains("score"))  
+
+library(kableExtra)
+kable(df_untidy) %>% 
+    scroll_box(width = "800px", height = "600px")
+```
+
+
+**Düzenli bir veri örneği:**
+
+```{r echo=FALSE}
+df %>% 
+  slice(1:10) %>%
+  kable(.) %>% 
+  scroll_box(width = "800px", height = "600px")
+```
+
+
+## `gather` İşlevi
+
+Birden çok sütunu iki sütuna daraltır. Verilerinizi yeniden şekillendirmek bu anlama gelir.
+
+`gather(data, key="my_key", value="values_of_each_col", ...="col_you_have_want_to_distribute")`
+
+```{r echo=TRUE}
+df_untidy %>% 
+  gather(key = "key", value = "value", 4:18)
+```
+
+
+`Na` sorununun çözümü:
+
+```{r echo=TRUE}
+df_untidy %>% 
+  gather(key = "key", value = "value", 4:18, na.rm = TRUE)
+```
+
+Görselleştirme:
+
+```{r echo=TRUE}
+df_untidy %>% 
+select(1:3, contains("FIFA")) %>% gather(key = "key", value = "value", 4:5, 
+    factor_key = TRUE, na.rm = TRUE) %>% 
+group_by(key, away_team) %>% 
+summarise(mean_brazil = mean(value)) %>% 
+ggplot(., aes(y = mean_brazil, x = away_team, group = away_team, fill = key)) + 
+  geom_col(position = "dodge") + 
+  coord_flip() + 
+  geom_hline(yintercept = 0, alpha = 0.3, color = "blue") + 
+  facet_wrap(~key) + 
+  theme_minimal()
+```
+
+
+## `seperate` İşlevi
+
+`separate(data, col="one_you_want_to_separate", into="division", sep="regular_expression")`
+
+```{r echo=TRUE}
+df_untidy %>% 
+  separate(col = date, into = c("year", "month", "day"))
+```
+
+
+## `spread` İşlevi
+
+```{r echo=TRUE}
+conflict_prefer("filter", "dplyr")
+
+# turnuva isimlerinin sütunlara alınması
+df %>% select(1:5, tournament) %>% 
+filter(home_team == "Brazil") %>% 
+mutate(diff = home_score - away_score) %>% 
+spread(key = tournament, value = diff) %>% 
+dplyr::select(-contains("score"))
+```
+
+
+# Veri İşleme için Diğer İşlev ve Paketler
+
+* `case_when()`: `if else` ifadesi yerine kullanılabilir
+* `fct_relevel()` : `factor` değişkenlerle kullanılabilir
+* `ludibrate` : tarih değişkenleriyle çalışabilecek paket
+* `stringr` : dizgelerle çalışabilecek paket
+
+
+
+
+
+
+
+
+
+
+
