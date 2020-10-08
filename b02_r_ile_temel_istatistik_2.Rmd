@@ -1,0 +1,995 @@
+---
+title: "R ile Temel İstatistik-2"
+author: "Murat Öztürkmen"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    code_folding: hide
+    highlight: kate
+    lightbox: no
+    number_sections: yes
+    self_contained: yes
+    thumbnails: no
+  html_document:
+    df_print: paged
+---
+
+```{r setup, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+# Olasılık Dağılımları
+
+**Olasılık dağılımı**, rastgele bir değişkenin gözlem değerlerinin nasıl dağıldığını açıklar. Örneğin, sırayla bir para atmanın tüm olası sonuçlarının toplanmasının **binom dağılımı**nı izlediği bilinmektedir. Oysa büyük bir kitleden çekilen, yeterince büyük örneklemlerin ortalamalarının normal dağılıma benzediği bilinmektedir. Bu teorik dağılımların özellikleri iyi anlaşıldığından, bir bütün olarak tüm kitle üzerinde istatistiksel çıkarımlar yapmak için kullanılabilirler.
+
+Burada, istatistiksel çalışmalarda sıklıkla görülen birkaç iyi bilinen olasılık dağılımının nasıl hesaplanacağını göreceğiz. Bunlara diğer bölümlerde oldukça sıkça başvuracağız.
+
+## Binom Dağılımı
+
+**Binom dağılımı,** kesikli(discrete) bir olasılık dağılımıdır. Bir deneydeki $n$ bağımsız denemenin sonucunu açıklar. Her denemenin başarı ya da başarısızlık olmak üzere yalnızca iki sonucu olduğu varsayılır. Başarılı bir denemenin olasılığı $p$ ise, $n$ bağımsız denemeden oluşan bir deneyde $x$ başarılı sonuca sahip olma olasılığı aşağıdaki gibidir:
+
+$$
+f(x)=\left(\begin{array}{l}n \\x\end{array}\right) p^{x}(1-p)^{(n-x)} \quad \text { burada } x=0,1,2, \ldots, n
+$$
+
+***Örnek:*** Bir saınavda on iki çoktan seçmeli soru olduğunu varsayalım. Her sorunun beş olası cevabı vardır ve bunlardan yalnızca biri doğrudur. Bir öğrenci her soruyu rastgele yanıtlamaya çalışırsa, dört veya daha az doğru yanıt alma olasılığını bulun.
+
+***Çözüm:*** Olası beş cevaptan sadece biri doğru olduğundan, bir soruyu rastgele doğru cevaplama olasılığı $1/5 = 0.2$'dir. Rastgele denemelerle tam 4 doğru cevap alma olasılığını aşağıdaki gibi bulabiliriz.
+
+```{r echo=TRUE}
+dbinom(4, size = 12, prob = 0.2)
+```
+
+Rastgele denemelerle dört veya daha az doğru cevap alma olasılığını bulmak için, $x = 0,…, 4$ ile `dbinom` işlevini uygularız:
+
+```{r echo=TRUE}
+dbinom(0, size=12, prob=0.2) + 
+  dbinom(1, size=12, prob=0.2) + 
+  dbinom(2, size=12, prob=0.2) + 
+  dbinom(3, size=12, prob=0.2) + 
+  dbinom(4, size=12, prob=0.2)
+```
+
+Alternatif olarak, binom dağılım için kümülatif olasılık fonksiyonunu `pbinom` kullanabiliriz:
+
+```{r echo=TRUE}
+pbinom(4, size=12, prob=0.2)
+```
+
+On iki soruluk çoktan seçmeli bir testte dört veya daha az sorunun rastgele doğru yanıtlanma olasılığı % 92,7'dir.
+
+## Poisson Dağılımı
+
+**Poisson dağılımı**, bir aralıktaki bağımsız olay meydana gelişlerinin olasılık dağılımıdır. Aralık başına ortalama meydana geliş $\lambda$ ise, belirli bir aralık içinde $x$ oluşumlara sahip olma olasılığı:
+
+$$
+f(x)=\frac{\lambda^{x} e^{-\lambda}}{x !} \text { burada } x=0,1,2,3, \ldots
+$$
+
+***Örnek***: Bir köprüden dakikada ortalama on iki araba geçiyorsa, belirli bir dakika içinde on yedi veya daha fazla arabanın köprüden geçme olasılığını bulun.
+
+***Çözüm***: Belirli bir dakikada on altı veya daha az arabanın köprüden geçme olasılığı `ppois` işlevi ile bulunabilir:
+
+```{r echo=TRUE}
+ppois(16, lambda=12)   # alt kuyruk
+```
+
+Bu nedenle, bir dakika içinde on yedi veya daha fazla arabanın köprüyü geçme olasılığı, olasılık yoğunluk işlevinin üst kuyruğundadır:
+
+```{r echo=TRUE}
+ppois(16, lambda=12, lower.tail = FALSE)   # üst kuyruk
+```
+
+Bir köprüden dakikada ortalama on iki araba geçiyorsa, belirli bir dakikada on yedi veya daha fazla arabanın köprüden geçme olasılığı % 10,1'dir.
+
+## Sürekli Tekdüze Dağılım
+
+**Sürekli tekdüze dağılım (continuous distribution)**, a ve b arasındaki sürekli aralıktan rastgele sayı seçiminin olasılık dağılımıdır. Yoğunluk işlevi aşağıdaki şekilde tanımlanır:
+
+$$
+f(x)=\left\{\begin{array}{ll}\frac{1}{6-a} & \text { when } a \leq x \leq b \\0 & \text { when } x<a \text { or } x>b\end{array}\right.
+$$
+
+***Örnek***: Bir ve üç arasında rastgele on sayı seçelim.
+
+***Çözüm***: Bir ile üç arasında on rastgele sayı oluşturmak için tekdüze dağılım üreten `runif` işlevini uygularız:
+
+```{r echo=TRUE}
+runif(10, min=1, max=3)
+```
+
+## Üstel Dağılım
+
+**Üstel dağılım**, rastgele tekrar eden bağımsız bir olay dizisinin varış zamanını tarif eder. $\mu$, bir sonraki olay tekrarı için ortalama bekleme süresi ise, olasılık yoğunluk işlevi:
+
+$$
+f(x)=\left\{\begin{array}{ll}\frac{1}{\mu} e^{-x / \mu} & \text { when } x \geq 0 \\0 & \text { when } x<0\end{array}\right.
+$$
+
+Örnek: Bir süpermarket kasiyerinin ortalama işlem süresinin üç dakika olduğunu varsayalım. Bir müşteri ödemesinin kasiyer tarafından iki dakikadan daha kısa sürede tamamlanma olasılığını bulun.
+
+Çözüm: Ödeme işlem oranı, bir bölü ortalama ödeme tamamlama süresine eşittir. Dolayısıyla, işlem hızı dakikada 1/3 ödemedir. Burada üstel dağılımın `pexp` işlevini oran = 1/3 ile uygularız.
+
+```{r echo=TRUE}
+pexp(2, rate=1/3)
+```
+
+Kasiyer tarafından bir ödemeyi iki dakikadan kısa sürede tamamlama olasılığı % 48,7'dir.
+
+## Normal Dağılım
+
+**Normal dağılım**, μ kitle ortalamasını ve σ2 varyansı ifade ettiği aşağıdaki olasılık yoğunluk fonksiyonu ile tanımlanır:
+
+$$
+f(x)=\frac{1}{\sigma \sqrt{2 \pi}} e^{-(x-\mu)^{2} / 2 \sigma^{2}}
+$$
+
+Rastgele bir X değişkeni normal dağılımı takip ederse, şunu yazarız:
+
+$$
+X \sim N\left(\mu, \sigma^{2}\right)
+$$
+
+Özell olarak, μ = 0 ve σ = 1 olan normal dağılıma **standart normal dağılım** denir ve N (0,1) olarak gösterilir.
+
+Normal dağılım, **Merkezi Limit Teoremi** nedeniyle önemlidir; bu, ortalama μ ve varyans σ2 olan bir kitleden elde edilen tüm olası n büyüklüğündeki örneklerin, n sonsuza yaklaştığında ortalama μ ve σ2 ∕ n ile normal bir dağılıma yaklaştığını belirtir.
+
+Örnek: Üniversiteye giriş sınavının test puanlarının normal bir dağılıma uyduğunu varsayalım. Ayrıca, ortalama test puanı 72 ve standart sapma 15.2'dir. Sınavda 84 veya daha fazla puan alan öğrencilerin yüzdesi nedir?
+
+Çözüm: Normal dağılım için `pnorm` işlevini ortalama 72 ve standart sapma 15.2 ile uygularız. 84'ten yüksek puan alan öğrencilerin yüzdesini aradığımız için, normal dağılımın üst kuyruğu ile ilgileniyoruz.
+
+```{r echo=TRUE}
+pnorm(84, mean=72, sd=15.2, lower.tail=FALSE)
+```
+
+Kolej giriş sınavında 84 ve üzeri puan alan öğrencilerin yüzdesi % 21,5'tir.
+
+## Ki-Kare Dağılımı
+
+$X_{1}, X_{2 r} \ldots, X_{m}$ standart normal dağılıma sahip $m$ bağımsız rasgele değişkense, aşağıdaki toplam $m$ serbestlik dereceli bir **Ki-Kare dağılımını** izler. Ortalaması $m$ ve varyansı $2m$'dir.
+
+$$
+V=X_{1}^{2}+X_{2}^{2}+\cdots+X_{m}^{2} \sim \chi_{(m)}^{2}
+$$
+
+***Örnek***: 7 serbestlik dereceli Ki-Kare dağılımının 95. yüzdelik dilimini bulun.
+
+***Çözüm***: Ki-Kare dağılımının `qchisq` kantil işlevini 0.95 ondalık değerlere karşı uygularız.
+
+```{r echo=TRUE}
+qchisq(.95, df=7)        # 7 serbestlik derecesi 
+```
+
+7 serbestlik dereceli Ki-Kare dağılımının 95. yüzdelik dilimi 14.067'dir.
+
+## Student-t Dağılımı
+
+Bir rasgele değişken Z'nin standart normal dağılıma sahip olduğunu ve başka bir rasgele değişken V'nin m serbestlik dereceli Ki-Kare dağılımına sahip olduğunu varsayalım. Ayrıca Z ve V'nin bağımsız olduğunu varsayalım, bu durumda aşağıdaki eşitlik m serbestlik dereceli **Student t dağılımı**nı takip eder.
+
+$$
+t=\frac{Z}{\sqrt{V / m}} \sim t_{(m)}
+$$
+
+***Örnek***: 5 serbestlik dereceli Student t dağılımının 2.5. ve 97.5. yüzdeliklerini bulun.
+
+***Çözüm***: Student t dağılımının `qt` kantil işlevini 0.025 ve 0.975 ondalık değerlerine karşı uygularız.
+
+```{r echo=TRUE}
+qt(c(.025, .975), df=5)   # 5 serbestlik derecesi
+```
+
+5 serbestlik dereceli Student t dağılımının 2.5. ve 97.5. yüzdelikleri sırasıyla -2.5706 ve 2.5706'dır.
+
+## F Dağılımı
+
+$V_{1}$ ve $V_{2}$, sırasıyla $m_{1}$ ve $m_{2}$ serbestlik derecelerine sahip Ki-Kare dağılımına sahip iki bağımsız rasgele değişken ise, aşağıdaki eşitlik $m_{1}$ pay serbestlik derecesi ve $m_{2}$ payda serbestlik derecesi ile **F dağılımı**nı takip eder, yani, ($m_{1}$, $m_{2}$) serbestlik derecesi.
+
+$$
+F=\frac{V_{1} / m_{1}}{V_{2} / m_{2}} \sim F_{\left(m_{1}, m_{2}\right)}
+$$
+
+***Örnek***: (5, 2) serbestlik derecesi ile F dağılımının 95. yüzdelik dilimini bulun.
+
+***Çözüm***: F dağılımının `qf` kuantil fonksiyonunu 0.95 ondalık değerine karşı uygularız.
+
+```{r echo=TRUE}
+qf(.95, df1=5, df2=2)
+```
+
+(5, 2) serbestlik derecesine sahip F dağılımının 95. yüzdelik dilimi 19.296'dır.
+
+# Aralık Tahmini
+
+Basit rastgele örneklem verilerine dayalı olarak kitle parametrelerini etkin bir şekilde tahmin etmek yaygın bir gerekliliktir. Bu kısımda R'da tahminlerin nasıl hesaplanacağını göreceğiz.
+
+Tüm adımlar, yerleşik `survey` veriseti üzerinde uygulanmıştır. Veriseti, Avustralya'da bir üniversitedeki istatistik bölümü öğrencilerine uygulanmış anket çalışmasından elde edilmiştir.
+
+```{r echo=TRUE}
+library(MASS)
+head(survey)
+```
+
+## Kitle Ortalaması için Nokta Tahmin
+
+Herhangi bir rasgele örneklem için, örnek ortalamasını her zaman hesaplayabiliriz. Çoğu zaman gerçek kitle ortalaması kadar olmasa da, iyi bir **nokta tahminci** olarak hizmet eder. Örneğin, `survey` verisetinde anket öğrenci kitlesinin bir örneklemi üzerinde gerçekleştirilmiştir. Örnek ortalamasını hesaplayabilir ve karşılık gelen kitle parametresinin bir tahmini olarak kullanabiliriz.
+
+***Örnek***: Anketten alınan örnek verilerle üniversite öğrencilerinin ortalama boyunun bir nokta tahmini bulun.
+
+***Çözüm***: Tüm öğrencilerin soruyu yanıtlamamıştır ve eksik değerleri filtrelememiz gerekiyor. Bu nedenle, `mean` işlevi içinde `"na.rm"` argümanına `TRUE` uygularız.
+
+```{r echo=TRUE}
+height.survey = survey$Height
+
+# kayıp değerlerin hesaba katılmaması
+mean(height.survey, na.rm=TRUE)
+```
+
+Ortalama öğrenci boyunun bir nokta tahmini 172.38 santimetredir.
+
+## Kitle Varyansı Bilindiğinde Kitle Ortalaması için Aralık Tahmini
+
+Kitle ortalamasının bir nokta tahminini bulduktan sonra, doğruluğunu ölçmek için bir yola ihtiyacımız olacaktır. Burada, kitle varyansı σ2'nin bilindiğini varsayıyoruz. Standart normal dağılımın 100 (1 −α ∕ 2) yüzdelik dilimini $z_{\alpha / 2}$ olarak gösterelim. Yeterince büyük boyutta rastgele örneklem için, aralık tahmininin (1 - α) güven düzeyindeki sınırlar aşağıdaki gibi verilmiştir:
+
+$$
+\bar{x} \pm z_{\alpha / 2} \frac{\sigma}{\sqrt{n}}
+$$
+
+***Örnek***: Verisetindeki öğrenci boyunun kitle standart sapmasının σ = 9.48 olduğunu varsayalım. Hata payını ve aralık tahminini % 95 güven düzeyinde bulun.
+
+***Çözüm***: İlk olarak kayıp değerleri filtreleriz:
+
+```{r echo=TRUE}
+height.response = na.omit(survey$Height)
+```
+
+Ortalama için standart sapmayı hesaplarız:
+
+```{r echo=TRUE}
+n = length(height.response) 
+
+# kitle standart sapması
+sigma = 9.48
+
+# ortalamanın standart sapması
+sem = sigma/sqrt(n)
+sem       
+```
+
+Normal dağılımın iki kuyruğu olduğundan, % 95 güven seviyesi, üst kuyruktaki normal dağılımın 97.5. yüzdeliğini ifade eder. Bu nedenle, $z_{\alpha / 2}$, `qnorm (.975)` ile verilir. Bunu ortalama `sem` in standart hatasıyla çarpıp hata payını elde ederiz.
+
+```{r echo=TRUE}
+# hata marjı
+E = qnorm(.975)∗sem 
+E          
+```
+
+Daha sonra bunu örnek ortalamasına ekliyoruz ve söylendiği gibi güven aralığını buluyoruz.
+
+```{r echo=TRUE}
+# örneklem ortalaması
+xbar = mean(height.response)    
+xbar + c(−E, E)
+```
+
+Kitle standart sapmasının σ = 9.48 olduğu varsayıldığında, öğrenci boyunun % 95 güven düzeyinde hata payı 1.2852 santimetredir. Güven aralığı 171,10 ile 173,67 santimetre arasındadır.
+
+***Alternatif Çözüm***: Ders kitabı formülünü kullanmak yerine, `TeachingDemos` paketinde `z.test` işlevini uygulayabiliriz. Çekirdek R paketi değildir ve önceden çalışma alanına yüklenmelidir.
+
+```{r echo=TRUE}
+library(TeachingDemos)
+z.test(height.response, sd=sigma)
+```
+
+## Kitle Varyansı Bilinmediğinde Kitle Ortalaması için Aralık Tahmini
+
+Kitle ortalamasının bir nokta tahminini bulduktan sonra, doğruluğunu ölçmek için bir yola ihtiyacımız olacaktır. Burada, kitle varyansı σ2'nin bilinmediğini varsayıyoruz.
+
+Student t dağılımının 100 (1 −α ∕ 2) yüzdelik dilimini n− 1 serbestlik derecesi ile $t_{\alpha / 2}$ olarak gösterelim. Yeterince büyük boyutta rastgele örneklemler için ve standart sapma s ile, **aralık tahmini**nin (1 −α) güven düzeyindeki sınırları aşağıdaki gibi verilmiştir:
+
+$$
+x \pm t_{\alpha / 2} \frac{s}{\sqrt{n}}
+$$
+
+***Örnek***: `survey` verisetinde öğrenci boyunun kitle standart sapmasını varsaymadan, hata payını ve aralık tahminini % 95 güven düzeyinde bulun.
+
+***Çözüm***:
+
+Örnek standart sapması:
+
+```{r echo=TRUE}
+n = length(height.response) 
+
+# örnek standart sapması
+s = sd(height.response)
+
+# standart hata tahmini
+SE = s/sqrt(n) 
+SE
+```
+
+Student t dağılımının iki kuyruğu olduğundan, % 95 güven seviyesi, üst kuyruktaki Student t dağılımının 97.5. yüzdelik dilimini ifade eder. Bu nedenle, $t_{\alpha / 2}$, `qt(.975, df = n-1)` işlevi ile elde edilir. Bunu standart hata tahmini SE ile çarpıp hata payını elde ederiz.
+
+```{r echo=TRUE}
+# hata marjı
+E = qt(.975, df=n−1)∗SE 
+E     
+```
+
+Sonra da bunu örneklem ortalamasına ekleyerek güven aralığını hesaplayabiliriz:
+
+```{r echo=TRUE}
+# örneklem ortalaması
+xbar = mean(height.response) 
+xbar + c(−E, E) 
+```
+
+***Alternatif çözüm***: Ders kitabı formülünü kullanmak yerine, yerleşik `stats` paketindeki `t.test` işlevini uygulayabiliriz:
+
+```{r echo=TRUE}
+t.test(height.response)
+```
+
+## Kitle Ortalamasının Örneklem Genişliği
+
+Örneklem anketinin kalitesi, örneklem büyüklüğünün artırılmasıyla iyileştirilebilir. Aşağıdaki formül, (1 −α) güven düzeyinde, E hata marjı ve kitle varyansı σ2 için kitle ortalamasının aralık tahmini için ihtiyaç duyulan örneklem genişliğini verir:
+
+$$
+n=\frac{\left(z_{\alpha / 2}\right)^{2} \sigma^{2}}{E^{2}}
+$$
+
+***Örnek***: `survey` verisetindeki öğrenci boyunun kitle standart sapmasının σ = 9.48 olduğunu varsayalım. % 95 güven düzeyinde 1,2 santimetre hata payı elde etmek için gereken örnek boyutunu bulun.
+
+***Çözüm***: Normal dağılımın iki kuyruğu olduğundan,% 95 güven seviyesi, üst kuyruktaki normal dağılımın 97.5. yüzdeliğini ifade eder. Bu nedenle, $z_{\alpha / 2}$, `qnorm (.975)` işlevi ile elde edilir.
+
+```{r echo=TRUE}
+zstar = qnorm(.975) 
+sigma = 9.48 
+E = 1.2 
+zstar^2 ∗ sigma^2/ E^2
+```
+
+Kitle standart sapmasının 9.48 olduğu varsayımına dayanarak, % 95 güven seviyesinde 1.2 santimetre hata payı elde etmek için 240 örnek büyüklüğüne ihtiyaç vardır.
+
+## Kitle Oranının Nokta Tahmini
+
+Bir anketteki çoktan seçmeli sorula genellikle belirli özelliklere sahip bir nüfusun oranını belirlemek için kullanılır. Örneğin, örnek veri seti `survey`'deki sonuca dayanarak üniversitedeki kadın öğrencilerin oranını tahmin edebiliriz.
+
+***Örnek***: Anketten kız öğrenci oranına ilişkin bir nokta tahmini bulun.
+
+***Çözüm***: İlk olarak kayıp değerleri filtreleyerek `gender.response` değişkenini elde edelim:
+
+```{r echo=TRUE}
+
+gender.response = na.omit(survey$Sex)
+
+# geçerli cevap sayısı
+n <- length(gender.response)
+```
+
+Şimdi kadın öğrencilerin sayısını hesaplamak oldukça kolaydır. Tek yapmamız gereken değişken içerisine `Female` olanları filtreleyip sayısını bulmak ve toplam sayıya bölmektir.
+
+```{r echo=TRUE}
+
+k = sum(gender.response == "Female")
+pbar = k/n 
+pbar
+```
+
+`survey` verisetinde kadın öğrenci oranının nokta tahmini % 50'dir.
+
+## Kitle Oranı için Aralık Tahmini
+
+Kitle oranının bir nokta örnek tahminini bulduktan sonra, onun güven aralığını tahmin etmemiz gerekir.
+
+Standart normal dağılımın 100 (1 −α ∕ 2) yüzdelik dilimini $z_{\alpha / 2}$ olarak gösterelim. Örneklem boyutu n ve kitle oranı p için, np ≥ 5 ve n (1 - p) ≥ 5 koşulunu karşılarsa, aralık tahmini (1 - α) güven düzeyinde aşağıdaki gibi yapılabilir:
+
+$$
+\bar{p} \pm z_{\alpha / 2} \sqrt{\frac{\bar{p}(1-\bar{p})}{n}}
+$$
+
+Örnek: `survey` verisetindeki kadın öğrencilerin oranı için% 95 güven düzeyinde hata payını hesaplayın ve aralığı tahmin edin.
+
+Çözüm:
+
+Daha önce nokta tahmini hesaplamıştık. Şimdi standart hatayı hesaplayalım:
+
+```{r echo=TRUE}
+# standart hata
+SE = sqrt(pbar∗(1−pbar)/n)
+SE
+```
+
+Normal dağılımın iki kuyruğu olduğundan,% 95 güven seviyesi, üst kuyruktaki normal dağılımın 97.5. yüzdeliğini ifade eder. Bu nedenle, $z_{\alpha / 2}$, `qnorm (.975)` ile hesaplanabilir. Dolayısıyla bunu standart hata tahmini SE ile çarpıyoruz ve hata payını hesaplarız.
+
+```{r echo=TRUE}
+# marj hata
+E = qnorm(.975)∗SE 
+E
+```
+
+Bunu da örneklem oranı ile bieleştirdiğimizde güven aralığını tahmin etmiş oluruz:
+
+```{r echo=TRUE}
+pbar + c(−E, E)
+```
+
+\% 95 güven düzeyinde üniversite öğrencilerinin % 43,6 ile % 56,3'ü kadındır ve hata payı % 6,4'tür.
+
+Alternatif çözüm: Ders kitabı formülünü kullanmak yerine yerleşik `stats` paketindeki `prop.test` işlevini uygulayabiliriz:
+
+```{r echo=TRUE}
+prop.test(k, n)
+```
+
+## Kitle Oranının Örneklem Genişliği
+
+Örneklem anketinin kalitesi, örneklem büyüklüğünün artırılmasıyla iyileştirilebilir. Aşağıdaki formül, (1 - α) güven düzeyinde kitle oranı aralık tahmini için, E hata marjı ve planlanan oranı tahmini p'de verilmişken gerekli örneklem genişliğini verir. Burada $z_{\alpha / 2}$, standart normal dağılımın 100 (1 - α ∕ 2) yüzdelik dilimidir.
+
+$$
+n=\frac{\left(z_{\alpha / 2}\right)^{2} p(1-p)}{E^{2}}
+$$
+
+Örnek: Daha önce elde ettiğimiz % 50 planlanan oran tahminini kullanarak, % 95 güven düzeyinde kadın öğrencilerin oranında % 5 hata payına ulaşmak için gereken örneklem büyüklüğünü bulun.
+
+Çözüm: Normal dağılımın iki kuyruğu olduğundan,% 95 güven seviyesi, üst kuyruktaki normal dağılımın 97.5. yüzdeliğini ifade eder. Bu nedenle, $z_{\alpha / 2}$, `qnorm (.975)` ile hesaplanabilir. Dolayısıyla bunu standart hata tahmini SE ile çarpıyoruz ve hata payını hesaplarız.
+
+```{r echo=TRUE}
+zstar = qnorm(.975) 
+p = 0.5 
+E = 0.05 
+zstar^2 ∗ p ∗ (1−p) / E^2
+```
+
+\% 95 güven seviyesinde planlanan oran tahmini % 50 ile, kadın öğrenci oranı anketinde % 5 hata payı elde etmek için 385 örnek büyüklüğüne ihtiyaç duyar.
+
+# Hipotez Testi
+
+Araştırmacılar, gözlemlenen örneklerin ölçümlerine dayanarak hipotezi korur veya reddeder. Karar genellikle **hipotez testi** adı verilen istatistiksel bir sürece dayanır. **Tip I hatası**, boş hipotez doğru olduğunda boş hipotezin yanlış bir şekilde reddedilmesidir. Tip I hata yapma olasılığına hipotez testinin **anlamlılık seviyesi** denir ve Yunanca *α* harfi ile gösterilir.
+
+## Varyans Bilindiğinde Kitle Ortalaması için Hipotez Testi
+
+### Alt Kuyruk Testi:
+
+Kitle ortalamasının alt kuyruk testinin sıfır hipotezi şu şekilde ifade edilebilir:
+
+$$
+\mu \geq \mu_{0}
+$$
+
+burada μ0, gerçek kitle ortalamasının μ varsayımına dayalı alt sınırıdır.
+
+Test istatistiğini z örneklem ortalaması, örneklem büyüklüğü ve kitle standart sapması σ cinsinden tanımlayalım:
+
+$$
+z=\frac{\bar{x}-\mu_{0}}{\sigma / \sqrt{\bar{n}}}
+$$
+
+Alt kuyruk testinin sıfır hipotezi, $z_{\alpha}$'nın standart normal dağılımın 100 (1 - α) yüzdeliği olduğu $z \leq-z_{a}$ ise reddedilecektir.
+
+Örnek: Üreticinin bir ampulün ortalama ömrünün 10.000 saatten fazla olduğunu iddia ettiğini varsayalım. 30 ampulden oluşan bir örnekte, ortalama olarak yalnızca 9.900 saat dayandıkları bulundu. Kitle standart sapmasının 120 saat olduğunu varsayalım. .05 anlamlılık düzeyinde, üreticinin iddiasını reddedebilir miyiz?
+
+Çözüm: Boş hipotez, μ ≥ 10000 olmasıdır. Test istatistiğini hesaplayarak başlıyoruz.
+
+```{r echo=TRUE}
+# örnek ortalaması
+xbar = 9900
+
+# hipotez değeri
+mu0 = 10000            
+
+# kitle standart sapması
+sigma = 120
+
+# örnek genişliği
+n = 30                  
+
+# test istatistiği
+z = (xbar−mu0)/(sigma/sqrt(n)) 
+z 
+```
+
+.05 anlamlılık düzeyinde kritik değer:
+
+```{r echo=TRUE}
+alpha = .05 
+z.alpha = qnorm(1−alpha) 
+−z.alpha
+```
+
+Test istatistiği -4.5644, -1.6449 kritik değerinden düşüktür. Dolayısıyla, .05 anlamlılık düzeyinde, bir ampulün ortalama ömrünün 10.000 saatin üzerinde olduğu iddiasını reddediyoruz.
+
+Alternatif çözüm: Kritik değeri kullanmak yerine, test istatistiğinin alt kuyruk p değerini hesaplamak için `pnorm` işlevini uygularız. 0,05 önem düzeyinden daha az olduğu ortaya çıktığı için, μ ≥ 10000 olan boş hipotezi reddederiz.
+
+```{r echo=TRUE}
+# alt kuyruk p-değeri
+pval = pnorm(z) 
+pval
+```
+
+### Üst Kuyruk Testi:
+
+Kitle ortalamasının üst kuyruk testinin sıfır hipotezi şu şekilde ifade edilebilir:
+
+$$
+\mu \leq \mu_{0}
+$$
+
+burada μ0, gerçek kitle ortalamasının μ varsayımına dayalı üst sınırıdır.
+
+Test istatistiğini z örneklem ortalaması, örneklem büyüklüğü ve kitle standart sapması σ cinsinden tanımlayalım:
+
+$$
+z=\frac{\bar{x}-\mu_{0}}{\sigma / \sqrt{\bar{n}}}
+$$
+
+Alt kuyruk testinin sıfır hipotezi, $z_{\alpha}$'nın standart normal dağılımın 100 (1 - α) yüzdeliği olduğu $z \geq-z_{a}$ ise reddedilecektir.
+
+Örnek: Bir kurabiye poşeti üzerindeki yiyecek etiketinde tek bir çerezde en fazla 2 gram doymuş yağ bulunduğunu varsayalım. 35 çerezlik bir örnekte, çerez başına ortalama doymuş yağ miktarının 2,1 gram olduğu bulunmuştur. Kitle standart sapmasının 0.25 gram olduğunu varsayalım. 0,05 anlamlılık düzeyinde, gıda etiketi iddiasını reddedebilir miyiz?
+
+Çözüm: Sıfır hipotezi, μ ≤ 2'dir. Test istatistiğini hesaplayarak başlıyoruz.
+
+```{r echo=TRUE}
+# örnek ortalaması
+xbar = 2.1
+
+# hipotez değeri
+mu0 = 2            
+
+# kitle standart sapması
+sigma = 0.25
+
+# örnek genişliği
+n = 35                  
+
+# test istatistiği
+z = (xbar−mu0)/(sigma/sqrt(n)) 
+z 
+```
+
+.05 anlamlılık düzeyinde kritik değer:
+
+```{r echo=TRUE}
+alpha = .05 
+z.alpha = qnorm(1−alpha) 
+z.alpha
+```
+
+Test istatistiği 2.3664, kritik değer olan 1.6449'dan daha büyüktür. Bu nedenle, .05 anlamlılık düzeyinde, bir çerezde en fazla 2 gram doymuş yağ olduğu iddiasını reddediyoruz.
+
+Alternatif Çözüm: Kritik değeri kullanmak yerine, test istatistiğinin üst kuyruk p değerini hesaplamak için `pnorm` işlevini uygularız. 0,05 önem düzeyinden daha az olduğu ortaya çıktığı için, μ ≤ 2 olan boş hipotezini reddediyoruz.
+
+```{r echo=TRUE}
+# üst kuyruk p-değeri
+pval = pnorm(z, lower.tail=FALSE) 
+pval
+```
+
+### Çift Kuyruk Testi
+
+Kitle ortalamasının üst kuyruk testinin sıfır hipotezi şu şekilde ifade edilebilir:
+
+$$
+\mu = \mu_{0}
+$$
+
+burada μ0, gerçek kitle ortalamasının μ varsayımıdır.
+
+Test istatistiğini z örneklem ortalaması, örneklem büyüklüğü ve kitle standart sapması σ cinsinden tanımlayalım:
+
+$$
+z=\frac{\bar{x}-\mu_{0}}{\sigma / \sqrt{\bar{n}}}
+$$
+
+Alt kuyruk testinin sıfır hipotezi, $z_{\alpha / 2}$'nın standart normal dağılımın 100 (1 - α) yüzdeliği olduğu $z \leq-z_{a / 2} \text { ya da } z \geq z_{a / 2}$ ise reddedilecektir.
+
+Örnek: Geçen yıl Antarktika kolonisinde bulunan Kral Penguenlerin ortalama ağırlığının 15,4 kg olduğunu varsayalım. Aynı kolonide bu yıl aynı zamanda 35 penguenden oluşan bir örnekte, ortalama penguen ağırlığı 14,6 kg'dır. Kitle standart sapmasının 2,5 kg olduğunu varsayalım. .05 anlamlılık düzeyinde, ortalama penguen ağırlığının geçen yıldan farklı olmadığı şeklindeki sıfır hipotezini reddedebilir miyiz?
+
+Çözüm: Boş hipotez, μ = 15.4'tür. Test istatistiğini hesaplamakla başlıyoruz.
+
+```{r echo=TRUE}
+# örnek ortalaması
+xbar = 14.6
+
+# hipotez değeri
+mu0 = 15.4            
+
+# kitle standart sapması
+sigma = 2.5
+
+# örnek genişliği
+n = 35                  
+
+# test istatistiği
+z = (xbar−mu0)/(sigma/sqrt(n)) 
+z 
+```
+
+Daha sonra kritik değerleri 0,05 anlamlılık düzeyinde hesaplarız:
+
+```{r echo=TRUE}
+alpha = .05 
+z.half.alpha = qnorm(1−alpha/2) 
+c(−z.half.alpha, z.half.alpha)
+```
+
+Test istatistiği -1.8931, kritik değerler -1.9600 ve 1.9600 arasındadır. Bu nedenle, .05 anlamlılık düzeyinde, ortalama penguen ağırlığının geçen yıldan farklı olmadığı şeklindeki sıfır hipotezini reddetmiyoruz.
+
+Alternatif çözüm: Kritik değeri kullanmak yerine, test istatistiğinin iki kuyruklu p değerini hesaplamak için pnorm işlevini uygularız. Örnek ortalamasının varsayılmış değerden daha az olması nedeniyle alt kuyruk p değerini iki katına çıkarır. 0,05 anlamlılık düzeyinden daha büyük olduğu ortaya çıktığından, μ = 15,4 olan boş hipotezi reddetmiyoruz.
+
+```{r echo=TRUE}
+# alt kuyruk
+pval = 2 ∗ pnorm(z)     
+pval
+```
+
+## Varyans Bilinmediğinde Kitle Ortalaması için Hipotez Testi
+
+### Alt Kuyruk Testi:
+
+Kitle ortalamasının alt kuyruk testinin sıfır hipotezi şu şekilde ifade edilebilir:
+
+$$
+\mu \geq \mu_{0}
+$$
+
+burada μ0, gerçek kitle ortalamasının μ varsayımına dayalı alt sınırıdır.
+
+Test istatistiği *t'yi* örneklem ortalaması, örneklem büyüklüğü ve kitle standart sapması σ cinsinden tanımlayalım:
+
+$$
+t=\frac{\bar{x}-\mu_{0}}{s / \sqrt{\bar{n}}}
+$$
+
+Alt kuyruk testinin sıfır hipotezi, $t_{\alpha}$'nın student t dağılımının, (n-1) serbestlik derecesiyle 100 (1 - α) yüzdeliği olduğu $t \leq-t_{a}$ ise reddedilecektir.
+
+Örnek: Üreticinin bir ampulün ortalama ömrünün 10.000 saatten fazla olduğunu iddia ettiğini varsayalım. 30 ampulden oluşan bir örnekte, ortalama olarak yalnızca 9.900 saat dayandıkları bulundu. Örnek standart sapmasının 125 saat olduğunu varsayın. .05 anlamlılık düzeyinde, üreticinin iddiasını reddedebilir miyiz?
+
+Çözüm: Boş hipotez, μ ≥ 10000 olmasıdır. Test istatistiğini hesaplayarak başlıyoruz.
+
+```{r echo=TRUE}
+# örnek ortalaması
+xbar = 9900
+
+# hipotez değeri
+mu0 = 10000            
+
+# kitle standart sapması
+s = 125
+
+# örnek genişliği
+n = 30                  
+
+# test istatistiği
+t = (xbar−mu0)/(s/sqrt(n)) 
+t 
+```
+
+.05 anlamlılık düzeyinde kritik değer:
+
+```{r echo=TRUE}
+alpha = .05 
+t.alpha = qt(1−alpha, df=n−1) 
+−t.alpha
+```
+
+Test istatistiği -4.3818, -1.6991 kritik değerinden daha düşüktür. Dolayısıyla .05 anlamlılık düzeyinde bir ampulün ortalama ömrünün 10.000 saatin üzerinde olduğu iddiasını reddedebiliriz.
+
+Alternatif çözüm: Kritik değeri kullanmak yerine, test istatistiğinin alt kuyruk p değerini hesaplamak için `pt` işlevini uygularız. 0,05 önem düzeyinden daha az olduğu ortaya çıktığı için, μ ≥ 10000 olan boş hipotezi reddederiz.
+
+```{r echo=TRUE}
+# alt kuyruk p-değeri
+pval = pt(t, df=n−1) 
+pval
+```
+
+### Üst Kuyruk Testi:
+
+Kitle ortalamasının üst kuyruk testinin sıfır hipotezi şu şekilde ifade edilebilir:
+
+$$
+\mu \leq \mu_{0}
+$$
+
+burada μ0, gerçek kitle ortalamasının μ varsayımına dayalı üst sınırıdır.
+
+Test istatistiği t yi örneklem ortalaması, örneklem büyüklüğü ve kitle standart sapması σ cinsinden tanımlayalım:
+
+$$
+t=\frac{\bar{x}-\mu_{0}}{s / \sqrt{\bar{n}}}
+$$
+
+Alt kuyruk testinin sıfır hipotezi, $t_{\alpha}$'nın student t dağılımının (n-1) serbestlik dereceli 100 (1 - α) yüzdeliği olduğu $z \geq-z_{a}$ ise reddedilecektir.
+
+Örnek: Bir kurabiye poşeti üzerindeki yiyecek etiketinde tek bir çerezde en fazla 2 gram doymuş yağ bulunduğunu varsayalım. 35 çerezlik bir örnekte, çerez başına ortalama doymuş yağ miktarının 2,1 gram olduğu bulunmuştur. Örnek standart sapmasının 0.3 gram olduğunu varsayalım. 0,05 anlamlılık düzeyinde, gıda etiketi iddiasını reddedebilir miyiz?
+
+Çözüm: Sıfır hipotezi, μ ≤ 2'dir. Test istatistiğini hesaplayarak başlıyoruz.
+
+```{r echo=TRUE}
+# örnek ortalaması
+xbar = 2.1
+
+# hipotez değeri
+mu0 = 2            
+
+# kitle standart sapması
+s = 0.3
+
+# örnek genişliği
+n = 35                  
+
+# test istatistiği
+t = (xbar−mu0)/(s/sqrt(n))
+t
+```
+
+.05 anlamlılık düzeyinde kritik değer:
+
+```{r echo=TRUE}
+alpha = .05 
+t.alpha = qt(1−alpha, df=n−1) 
+t.alpha
+```
+
+Test istatistiği 1.9720, 1.6991 kritik değerinden daha büyüktür. Dolayısıyla, .05 anlamlılık düzeyinde, bir çerezde en fazla 2 gram doymuş yağ olduğu iddiasını reddedebiliriz.
+
+Alternatif Çözüm: Kritik değeri kullanmak yerine, test istatistiğinin üst kuyruk p değerini hesaplamak için `pt` işlevini uygularız. 0,05 önem düzeyinden daha az olduğu ortaya çıktığı için, μ ≤ 2 olan boş hipotezini reddediyoruz.
+
+```{r echo=TRUE}
+# üst kuyruk p-değeri
+pval = pt(t, df=n−1, lower.tail=FALSE) 
+pval
+```
+
+### Çift Kuyruk Testi
+
+Kitle ortalamasının üst kuyruk testinin sıfır hipotezi şu şekilde ifade edilebilir:
+
+$$
+\mu = \mu_{0}
+$$
+
+burada μ0, gerçek kitle ortalamasının μ varsayımıdır.
+
+Test istatistiği t yi örneklem ortalaması, örneklem büyüklüğü ve kitle standart sapması σ cinsinden tanımlayalım:
+
+$$
+t=\frac{\bar{x}-\mu_{0}}{s / \sqrt{\bar{n}}}
+$$
+
+Alt kuyruk testinin sıfır hipotezi, $t_{\alpha / 2}$'nın student t dağılımın (n-1) serbestlik dereceli 100 (1 - α) yüzdeliği olduğu $t \leq-t_{a / 2} \text { ya da } t \geq t_{a / 2}$ ise reddedilecektir.
+
+Örnek: Geçen yıl Antarktika kolonisinde bulunan Kral Penguenlerin ortalama ağırlığının 15,4 kg olduğunu varsayalım. Aynı kolonide bu yıl aynı zamanda 35 penguenden oluşan bir örnekte, ortalama penguen ağırlığı 14,6 kg'dır. Örneklem standart sapmasının 2,5 kg olduğunu varsayalım. .05 anlamlılık düzeyinde, ortalama penguen ağırlığının geçen yıldan farklı olmadığı şeklindeki sıfır hipotezini reddedebilir miyiz?
+
+Çözüm: Boş hipotez, μ = 15.4'tür. Test istatistiğini hesaplamakla başlıyoruz.
+
+```{r echo=TRUE}
+# örnek ortalaması
+xbar = 14.6
+
+# hipotez değeri
+mu0 = 15.4            
+
+# kitle standart sapması
+s = 2.5
+
+# örnek genişliği
+n = 35                  
+
+# test istatistiği
+t = (xbar−mu0)/(s/sqrt(n)) 
+t 
+```
+
+Daha sonra kritik değerleri 0,05 anlamlılık düzeyinde hesaplarız:
+
+```{r echo=TRUE}
+alpha = .05 
+t.half.alpha = qt(1−alpha/2, df=n−1) 
+c(−t.half.alpha, t.half.alpha)
+```
+
+Test istatistiği -1.8931, -2.0322 ve 2.0322 kritik değerleri arasındadır. Bu nedenle, .05 anlamlılık düzeyinde, ortalama penguen ağırlığının geçen yıldan farklı olmadığı şeklindeki sıfır hipotezini reddetmiyoruz.
+
+Alternatif çözüm: Kritik değeri kullanmak yerine, test istatistiğinin iki kuyruklu p değerini hesaplamak için `pt` işlevini uygularız. Örnek ortalamasının varsayılmış değerden daha az olması nedeniyle alt kuyruk p değerini iki katına çıkarır. 0,05 anlamlılık düzeyinden daha büyük olduğu ortaya çıktığından, μ = 15,4 olan boş hipotezi reddetmiyoruz.
+
+```{r echo=TRUE}
+# alt kuyruk
+pval = 2 ∗ pt(t, df=n−1)
+pval
+```
+
+## Kitle Oranı için Hipotez Testi
+
+### Alt Kuyruk Testi:
+
+Kitle ortalamasının alt kuyruk testinin sıfır hipotezi şu şekilde ifade edilebilir:
+
+$$
+p \geq p_{0}
+$$
+
+burada p0, gerçek kitle oranının p varsayımına dayalı alt sınırıdır.
+
+Test istatistiği *z'yi* örneklem ortalaması, örneklem büyüklüğü ve kitle standart sapması σ cinsinden tanımlayalım:
+
+$$
+z=\frac{\bar{p}-p_{0}}{\sqrt{p_{0}\left(1-p_{0}\right) / n}}
+$$
+
+Alt kuyruk testinin sıfır hipotezi, $z_{\alpha}$'nın standart normal dağılımın 100 (1 - α) yüzdeliği olduğu $z \leq-z_{\alpha}$ ise reddedilecektir.
+
+Örnek: Son seçimde vatandaşların % 60'ının oy kullandığını varsayalım. Bir telefon anketinde 148 kişiden 85'i mevcut seçimlerde oy kullandığını söyledi. 0.5 anlamlılık düzeyinde, kitle seçmen oranının bu yıl% 60'ın üzerinde olduğu şeklindeki boş hipotezi reddedebilir miyiz?
+
+Çözüm: Boş hipotez, p ≥ 0.6 olmasıdır. Test istatistiğini hesaplayarak başlıyoruz.
+
+```{r echo=TRUE}
+# örnek oranı
+pbar = 85/148
+
+# hipotez değeri
+p0 = .6         
+
+# örneklem genişliği
+n = 148             
+
+# test istatistiği
+z = (pbar−p0)/sqrt(p0∗(1−p0)/n) 
+z
+```
+
+.05 anlamlılık düzeyinde kritik değer:
+
+```{r echo=TRUE}
+alpha = .05 
+z.alpha = qnorm(1−alpha) 
+−z.alpha
+```
+
+Test istatistiği -0.6376, -1.6449 kritik değerinden daha az değildir. Bu nedenle, .05 anlamlılık düzeyinde, nüfustaki seçmen oranının bu yıl% 60'ın üzerinde olduğu şeklindeki boş hipotezi reddetmiyoruz.
+
+Alternatif çözüm: Kritik değeri kullanmak yerine, test istatistiğinin alt kuyruk p değerini hesaplamak için `pnorm` işlevini uygularız. 0,05 önem düzeyinden daha az olduğu ortaya çıktığı için, p ≥ 0.6 olan boş hipotezi reddederiz.
+
+```{r echo=TRUE}
+# alt kuyruk p-değeri
+pval = pnorm(z) 
+pval
+```
+
+Alternatif çözüm: Doğrudan p değerini hesaplamak için `prop.test` işlevini uygularız. Yates süreklilik düzeltmesi pedagojik nedenlerden dolayı devre dışı bırakılmıştır.
+
+```{r echo=TRUE}
+prop.test(85, 148, p=.6, alt="less", correct=FALSE)
+```
+
+### Üst Kuyruk Testi
+
+Kitle ortalamasının alt kuyruk testinin sıfır hipotezi şu şekilde ifade edilebilir:
+
+$$
+p \leq p_{0}
+$$
+
+burada p0, gerçek kitle oranının p varsayımına dayalı alt sınırıdır.
+
+Test istatistiği *z'yi* örneklem ortalaması, örneklem büyüklüğü ve kitle standart sapması σ cinsinden tanımlayalım:
+
+$$
+z=\frac{\bar{p}-p_{0}}{\sqrt{p_{0}\left(1-p_{0}\right) / n}}
+$$
+
+Alt kuyruk testinin sıfır hipotezi, $z_{\alpha}$'nın standart normal dağılımın 100 (1 - α) yüzdeliği olduğu $z \geq-z_{\alpha}$ ise reddedilecektir.
+
+Örnek: Geçen yıl bir meyve bahçesinde hasat edilen elmaların% 12'sinin çürümüş olduğunu varsayalım. Bu yıl hasat edilen 214 elmadan 30'unun çürümüş olduğu ortaya çıktı. 0,05 anlamlılık düzeyinde, hasatta çürük elma oranının bu yıl% 12'nin altında kaldığı şeklindeki boş hipotezini reddedebilir miyiz?
+
+Çözüm: Boş hipotez, p ≤ 0.12'dir. Test istatistiğini hesaplamakla başlıyoruz.
+
+```{r echo=TRUE}
+# örnek oranı
+pbar = 30/214
+
+# hipotez değeri
+p0 = .12         
+
+# örneklem genişliği
+n = 214             
+
+# test istatistiği
+z = (pbar−p0)/sqrt(p0∗(1−p0)/n) 
+z
+```
+
+.05 anlamlılık düzeyinde kritik değer:
+
+```{r echo=TRUE}
+alpha = .05 
+z.alpha = qnorm(1−alpha) 
+z.alpha
+```
+
+Test istatistiği 0.90875 kritik değer olan 1.6449'dan büyük değildir. Bu nedenle, .05 anlamlılık düzeyinde, hasatta çürük elma oranının bu yıl% 12'nin altında kaldığı şeklindeki boş hipotezi reddetmiyoruz.
+
+Alternatif çözüm: Kritik değeri kullanmak yerine, test istatistiğinin üst kuyruk p değerini hesaplamak için `pnorm` işlevini uygularız. 0,05 önem düzeyinden daha az olduğu ortaya çıktığı için, p ≤ 0.12 olan boş hipotezi reddederiz.
+
+```{r echo=TRUE}
+# alt kuyruk p-değeri
+pval = pnorm(z, lower.tail=FALSE) 
+pval
+```
+
+Alternatif çözüm: Doğrudan p değerini hesaplamak için `prop.test` işlevini uygularız. Yates süreklilik düzeltmesi pedagojik nedenlerden dolayı devre dışı bırakılmıştır.
+
+```{r echo=TRUE}
+prop.test(30, 214, p=.12, alt="greater", correct=FALSE) 
+```
+
+### Çift Kuyruklu Test
+
+Kitle ortalamasının üst kuyruk testinin sıfır hipotezi şu şekilde ifade edilebilir:
+
+$$
+p = p_{0}
+$$
+
+burada p0, gerçek kitle oranının p varsayımıdır.
+
+Test istatistiğini z örneklem ortalaması, örneklem büyüklüğü ve kitle standart sapması σ cinsinden tanımlayalım:
+
+$$
+z=\frac{\bar{p}-p_{0}}{\sqrt{p_{0}\left(1-p_{0}\right) / n}}
+$$
+
+Alt kuyruk testinin sıfır hipotezi, $z_{\alpha / 2}$'nın standart normal dağılımın 100 (1 - α) yüzdeliği olduğu $z \leq-z_{a / 2} \text { ya da } z \geq z_{a / 2}$ ise reddedilecektir.
+
+Örnek: Bir yazı tura atmanın 20 denemeden 12 tura çıktığını varsayalım. .05 anlamlılık düzeyinde, yazı tura atmanın adil olduğu şeklindeki sıfır hipotezi reddedilebilir mi?
+
+Çözüm: Boş hipotez, p = 0.5 olmasıdır. Test istatistiğini hesaplamakla başlıyoruz.
+
+```{r echo=TRUE}
+# örnek oranı
+pbar = 12/20
+
+# hipotez değeri
+p0 = .5         
+
+# örneklem genişliği
+n = 20             
+
+# test istatistiği
+z = (pbar−p0)/sqrt(p0∗(1−p0)/n) 
+z
+```
+
+Daha sonra kritik değerleri 0,05 anlamlılık düzeyinde hesaplarız:
+
+```{r echo=TRUE}
+alpha = .05 
+z.half.alpha = qnorm(1−alpha/2) 
+c(−z.half.alpha, z.half.alpha)
+```
+
+0.89443 test istatistiği, -1.9600 ve 1.9600 kritik değerler arasındadır. Bu nedenle, .05 anlamlılık düzeyinde, yazı tura atmanın adil olduğu şeklindeki sıfır hipotezini reddetmiyoruz.
+
+Alternatif çözüm: Kritik değeri kullanmak yerine, test istatistiğinin iki kuyruklu p değerini hesaplamak için `pnorm` işlevini uygularız. Örnek ortalamasının varsayılmış değerden daha az olması nedeniyle alt kuyruk p değerini iki katına çıkarır. 0,05 anlamlılık düzeyinden daha büyük olduğu ortaya çıktığından, μ = 15,4 olan boş hipotezi reddetmiyoruz.
+
+```{r echo=TRUE}
+# alt kuyruk
+pval = 2 ∗ pnorm(z, lower.tail=FALSE)
+pval
+```
+
+Alternatif çözüm: Doğrudan p değerini hesaplamak için `prop.test` işlevini uygularız. Yates süreklilik düzeltmesi pedagojik nedenlerden dolayı devre dışı bırakılmıştır.
+
+```{r echo=TRUE}
+prop.test(12, 20, p=0.5, correct=FALSE)
+```

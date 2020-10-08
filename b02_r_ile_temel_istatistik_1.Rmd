@@ -1,0 +1,579 @@
+---
+title: "R ile Temel İstatistik-1"
+author: "Murat Öztürkmen"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    code_folding: hide
+    highlight: kate
+    lightbox: no
+    number_sections: yes
+    self_contained: yes
+    thumbnails: no
+  html_document:
+    df_print: paged
+---
+
+```{r setup, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+# Nitel Veri
+
+Bir veri örneği, değerleri bilinen tanımlanmış birbiriyle örtüşmeyen sınıfların bir kümesine aitse, **kategorik** ya da **nitel** veri olarak adlandırılır. Örnek olarak öğrenci harf notu (A, B, C, D veya F), kredi notu derecelendirmesi (AAA, AAB, ...) ve ayakkabı numarası (1, 2, 3, ...) verilebilir.
+
+Burada R'ın yerleşik verisetlerinden `painters` veriseti üzerinde çalışılacaktır. Veriseti, bazı 18. yüzyıl klasik ressamlarına ait birkaç teknik bilgi içermektedir. Verisetini kullanabilmek için `MASS` kütüphanesini çağırmamız gerekecektir.
+
+```{r echo=TRUE}
+# kütüphanenin çağırılması
+library(MASS)
+
+# veriseti
+painters
+```
+
+Sonda yer alan `School` sütunu, ressamların okul sınıflandırması bilgilerini içerir. Okullar A, B, ... vb. Olarak adlandırılır ve `Schhol` değişkeni nitel bir değişkendir.
+
+```{r echo=TRUE}
+painters$School
+```
+
+## Nitel Verinin Frekans Dağılımı
+
+Bir değişkenin frekans dağılımı, örtüşmeyen kategorilerden oluşan bir kümedeki veri oluşumunun bir özetidir. Örneğin `painters` verisinde, `School` değişkeninin frekans dağılımı, her okuldaki ressam sayısının bir özetidir.
+
+Verisetinde ressamların okullarının frekans dağılımını bulalım. Bunun için `table` işlevini uygulayacağız:
+
+```{r echo=TRUE}
+# ressamların okulları
+school <- painters$School
+
+# table işlevinin uygulanması
+school.freq <- table(school)
+
+# okulların frekans dağılımı
+school.freq
+```
+
+Çıktıyı sütun biçiminde `cbind` işlevi ile gösterebiliriz:
+
+```{r echo=TRUE}
+cbind(school.freq)
+```
+
+## Nitel Verinin Göreli Frekans Dağılımı
+
+Bir veri \<değişkeninin göreli frekans dağılımı, örtüşmeyen kategorilerden oluşan bir kümedeki frekans oranının bir özetidir.
+
+Frekans ve göreli frekans ilişkisi:
+
+$$
+\text {Göreli Frekans}=\frac{\text {Frekans}}{\text {Örnek Hacmi}}
+$$
+
+`painters` verisetinde ressamların okullarının göreli frekanslarını bulalım:
+
+```{r echo=TRUE}
+school.relfreq <- school.freq / nrow(painters)
+school.relfreq
+```
+
+Virgülden sonra daha az rakam yazarak, çıktıyı daha okunaklı hale getirebiliri:
+
+```{r echo=TRUE}
+old <- options(digits = 1)
+school.relfreq
+options(old)
+```
+
+Ek olarak çıktıyı sütun halinde de gösterebiliriz:
+
+```{r echo=TRUE}
+old <- options(digits = 1)
+cbind(school.relfreq)
+options(old)
+```
+
+## Çubuk Grafiği
+
+Nitel bir değişkenin **çubuk grafiği(bar plot)**, frekans dağılımını grafik olarak gösteren dikey paralel çubuklardan oluşur.
+
+Ressamların okulları için çubuk grafiğini `barplot` işlevi kullanarak çizdirelim:
+
+```{r echo=TRUE}
+barplot(school.freq)
+```
+
+Grafikleri renk tanımı yaparak renklendirebiliriz:
+
+```{r echo=TRUE}
+colors = c("red", "yellow", "green", "violet", "orange", "blue", "pink", "cyan") 
+barplot(school.freq, col = colors)
+```
+
+## Pasta Grafik
+
+Nitel bir değişkenin **pasta grafiği**, frekans dağılımını grafik olarak gösteren pizza dilimlerinden oluşur.
+
+Ressamların okulları için pasta grafiğini çizelim:
+
+```{r echo=TRUE}
+pie(school.freq)
+```
+
+Pasta grafiğini de çubuk grafğinde yaptığımız gibi renklendirebiliriz:
+
+```{r echo=TRUE}
+colors = c("red", "yellow", "green", "violet", "orange", "blue", "pink", "cyan") 
+pie(school.freq, col = colors)
+```
+
+## Nitel Veri İstatistikleri
+
+Okullar bazında özet istatistikler basit bir şekilde `psych::describe.by` işlevi hesaplanabilir:
+
+```{r echo=TRUE}
+psych::describe.by(painters, group="School")
+```
+
+# Nicel Veri
+
+**Sürekli veri(continuous)** olarak da bilinen **nicel veriler(quantitative)**, aritmetik işlemleri destekleyen sayısal verilerden oluşur. Bu, değerleri aritmetik işleme izin verilmeyen önceden tanımlanmış sınıflara ait olan nitel verilerin tam karşıtıdır. Nicel veri analizi için bazı R araçlarının nasıl uygulanacağını örneklerle açıklayacağız.
+
+Buradaki analizler yerleşik R verisetlerinden `faithful` verisetine dayanmaktadır. ABD Yellowstone Ulusal Parkı'ndaki Old Faithful gayzerinin gözlemlerinden oluşan bir kümeden oluşmaktadır. Aşağıda, `head` işlevi aracılığıyla verinin bir ön izlemesi verilmiştir.
+
+```{r echo=TRUE}
+head(faithful)
+```
+
+Veri setinde iki değişkene ait gözlemler bulunmaktadır. `eruptions` adı verilen birincisi, gayzer püskürmelerinin süresidir. `waitings` olarak adlandırılan ikincisi, bir sonraki patlamaya kadar bekleme süresinin uzunluğudur.
+
+## Nicel Verinin Frekans Dağılımı
+
+`faithful` verisetinde püskürme sürelerinin frekans dağılımını bulalım. Bunun için bazı adımlar izleyeceğiz:
+
+-   İlk olarak püskürme sürelerinin aralığını bulalım. Püskürme süreleri 1.6 ile 5.1 dakika arasında gözlemlenmektedir.
+
+```{r echo=TRUE}
+duration <- faithful$eruptions
+range(duration)
+```
+
+-   Eşit mesafeli kesme noktaları dizisi tanımlayarak aralığı üst üste binmeyen alt aralıklara bölelim. [1.6, 5.1] aralığının uç noktalarını en yakın yarı tam sayılara yuvarlarsak, [1.5, 5.5] aralığını buluruz. Böylece, kesme noktalarını yarım tam sayı dizisi {1.5, 2.0, 2.5, ...} olacak şekilde ayarız.
+
+```{r echo=TRUE}
+# yarım-tamsayı dizisi
+breaks <- seq(1.5, 5.5, by=0.5)     
+breaks
+```
+
+-   Püskürme sürelerini, kesilen yarım birim uzunlukta alt aralıklara göre sınıflandıralım. Aralıklar solda kapatılıp sağda açılacağından, `right` argümanını `FALSE` olarak ayarız.
+
+```{r echo=TRUE}
+duration.cut <- cut(duration, breaks, right=FALSE)
+```
+
+-   Şimdi `table` işlevi ile frekansı hesaplayabiliriz.
+
+```{r echo=TRUE}
+duration.freq <- table(duration.cut)
+cbind(duration.freq)
+```
+
+## Histogram
+
+**Histogram**, nicel bir değişkenin frekans dağılımını grafik olarak gösteren paralel dikey çubuklardan oluşur. Her çubuğun alanı, her sınıfta bulunan öğelerin sıklığına eşittir.
+
+`faithful` verisetinde püskürme süreleri için histogramı çizdirelim. Bunun için `hist` işlevini kullanabiliriz:
+
+```{r echo=TRUE}
+duration <- faithful$eruptions
+# hist işlevinin uygulanması (aralıklar soldan kapalıdır)
+hist(duration, right = FALSE)
+```
+
+Histogram çizerken renkleri belirleyebilir, başlık ve eksen isimlerini de özelleştirebiliriz.
+
+```{r echo=TRUE}
+# renklerin belirlenmesi
+colors = c("red", "yellow", "green", "violet", "orange", "blue", "pink", "cyan") 
+# hist işlevi içinde parametrelerin özelleştirilmesi
+hist(duration, right=FALSE, col=colors, main="Old Faithful Eruptions", xlab="Duration minutes")
+```
+
+## Nicel Verinin Göreli Frekans Dağılımı
+
+Nicel veri için göreli frekans dağılımını, nitel veride olduğu gibi bulabiliriz. `duration.freq` ile frekans dağılımını bulmuştuk. Göreli frekans dağılımını da kolay bir şekilde bulabiliriz:
+
+```{r echo=TRUE}
+# virgülden sonrasının ayarlanması
+old = options(digits=1)
+
+# göreli frekansın hesaplanması
+duration.relfreq = duration.freq / nrow(faithful)
+
+# çıktının(frekans ve göreli frekans) sütun biçiminde alınması
+cbind(duration.freq, duration.relfreq)
+
+# ayarların eski hale getirilmesi
+options(old)
+```
+
+## Kümülatif Frekans Dağılımı
+
+Nicel bir değişkenin **kümülatif frekans dağılımı**, belirli bir düzeyin altındaki veri frekansının bir özetidir.
+
+`faithful` verisetinde püskürme süresi için kümülatif frekans dağılımı için `cumsum` işlevini kullanarak bulabiliriz.
+
+```{r echo=TRUE}
+# cumsum işlevinin uygulanması
+duration.cumfreq = cumsum(duration.freq)
+
+# çıktının yazdırılması
+cbind(duration.cumfreq)
+```
+
+## Kümülatif Frekans Grafiği
+
+Şimdi de önceki bölümde bulduğumuz kümülatif frekans dağılımı için grafiği çizelim.
+
+Başlangıç olarak veriye 0 elemanını ekleyip grafiği çizebiliriz:
+
+```{r echo=TRUE}
+# 0 elemanının eklenmesi
+cumfreq0 = c(0, cumsum(duration.freq))
+
+# grafiğin çizilmesi
+plot(breaks, cumfreq0,             
+   main="Old Faithful Eruptions",   
+   xlab="Duration minutes",         
+   ylab="Cumulative eruptions")
+
+# noktaların birleştirilmesi
+lines(breaks, cumfreq0)           
+```
+
+## Kümülatif Göreli Frekans Dağılımı
+
+Kümülatif göreli frekans dağılımı da, göreli frekans dağılımının elde edilişi gibi hesaplanır:
+
+$$
+\text {Kümülatif Göreli Frekans}=\frac{\text {Kümülatif Frekans}}{\text {Örnek Hacmi}}
+$$
+
+Püskürme süresi için kümülatif göreli dağılımı hesaplayalım:
+
+```{r echo=TRUE}
+duration.cumrelfreq = duration.cumfreq / nrow(faithful)
+old = options(digits=2)
+cbind(duration.cumfreq, duration.cumrelfreq)
+options(old)
+```
+
+## Kümülatif Göreli Frekans Grafiği
+
+Şimdi kümülatif göreli frekans grafiğini çizebiliriz:
+
+```{r echo=TRUE}
+cumrelfreq0 = c(0, duration.cumrelfreq) 
+plot(breaks, cumrelfreq0, 
+     main="Old Faithful Eruptions",   
+     xlab="Duration minutes", 
+     ylab="Cumulative eruption proportion") 
+lines(breaks, cumrelfreq0)
+```
+
+Alternatif bir yaklaşım olarak yerleşik `ecdf` işlevi ile bir enterpolasyon işleevi `Fn` oluştururuz. Sonra hemen ardından `Fn`'yi çizebiliriz. *A priori* kümülatif frekans dağılımını hesaplamaya gerek yoktur.
+
+```{r echo=TRUE}
+Fn = ecdf(duration) 
+plot(Fn, 
+     main="Old Faithful Eruptions", 
+     xlab="Duration minutes", 
+     ylab="Cumulative eruption proportion")
+```
+
+## Kök-Yaprak (*stem-and-leaf*) Grafiği
+
+Nicel bir değişkenin **kök yaprak grafiği**, veri öğelerini en önemli sayısal rakamlarına göre sınıflandıran metinsel bir grafiktir. Ek olarak, grafiği okunabilirlik açısından basitleştirmek için genellikle her bir alternatif satırı bir sonraki satırla birleştiririz.
+
+Püskürme süresi için kök-yaprak grafiğini `stem` işlevini kullanarak çizebiliriz:
+
+```{r echo=TRUE}
+stem(duration)
+```
+
+## Dağılım Grafiği
+
+**Dağılım grafiği (scatter plot)**, veri kümesindeki iki nicel değişkenin değerlerini eşleştirir ve bunları Kartezyen diyagram içinde geometrik noktalar olarak görüntüler.
+
+Püskürme süresi ve bekleme süresi için dağılım grafiğini çizelim:
+
+```{r echo=TRUE}
+duration = faithful$eruptions       
+waiting = faithful$waiting          
+plot(duration, waiting,
+     xlab="Eruption duration",        
+     ylab="Time waited")              
+```
+
+`lm` fonksiyonu ile iki değişkenin doğrusal bir regresyon modelini oluşturabilir ve ardından `abline` ile bir trend çizgisi çizebiliriz.
+
+```{r echo=TRUE}
+duration = faithful$eruptions       
+waiting = faithful$waiting          
+plot(duration, waiting,
+     xlab="Eruption duration",        
+     ylab="Time waited")
+abline(lm(waiting ~ duration))
+```
+
+# Sayısal Ölçüler
+
+## Ortalama
+
+Bir değişkenin **ortalaması**, veri değerlerinin merkezi konumunun sayısal bir ölçüsüdür. Veri değerlerinin toplamının gözlem sayısına bölünmesidir.
+
+*n* hacimli bir örneklem için **örnek ortalaması**:
+
+$$
+\bar{x}=\frac{1}{n} \sum_{i=1}^{n} x_{i}
+$$
+
+*N* hacimli bir kitle için **kitle ortalaması**:
+
+$$
+\mu=\frac{1}{N} \sum_{i=1}^{N} x_{i}
+$$
+
+Püskürme süresi için ortalama, `mean` işlevi ile hesaplanabilir:
+
+```{r echo=TRUE}
+# mean işlevinin uygulanması
+mean(duration)
+```
+
+## Ortanca
+
+Bir değişkenin `ortancası`, veriler artan sırada sıralandığında ortadaki değerdir. Veri değerlerinin merkezi konumunun sıra ölçüsüdür.
+
+Püskürme süresi için ortalama, `median` işlevi ile hesaplanabilir:
+
+```{r echo=TRUE}
+# median işlevinin uygulanması
+median(duration)
+```
+
+## Çeyreklikler
+
+Bir değişkenin birkaç **çeyreği(quartile)** vardır. **İlk çeyrek** veya **alt çeyrek**, artan düzende sıralandığında verilerin ilk % 25'ini kesen değerdir. **İkinci çeyrek** veya **ortanca**, ilk % 50'yi kesen değerdir. **Üçüncü çeyrek** veya **üst çeyrek**, ilk % 75'i kesen değerdir.
+
+Püskürme süresi için çeyrekliklerini, `quantile` işlevi ile hesaplayabiliriz:
+
+```{r echo=TRUE}
+# quantile işlevinin uygulanması
+quantile(duration)
+```
+
+## Yüzdelikler
+
+Bir değişkeninin n-inci **yüzdelik** dilimi, artan düzende sıralandığında gözlemlerin ilk yüzde n'sini kesen değerdir.
+
+Püskürme süresi için 32-nci, 57-nci ve 98-inci yüzdelikleri bulmak için `quantile` işlevi ile bulabiliriz:
+
+```{r echo=TRUE}
+# quantile işlevinin uygulanması
+quantile(duration, c(.32, .57, .98))
+```
+
+## Aralık
+
+Bir değişkeninin **aralığı(range)**, en büyük ve en küçük veri değerlerinin farkıdır. Tüm gözlemlerin değer olarak ne kadar uzaklara yayıldığının bir ölçüsüdür.
+
+$$
+Aralık = En Büyük Değer-En Küçük Değer
+$$
+
+Püskürme süresi için aralığı kolayca bulabiliriz:
+
+```{r echo=TRUE}
+# quantile işlevinin uygulanması
+max(duration) - min(duration)
+```
+
+## Çeyreklerarası Aralık
+
+Bir değişkenin **çeyrekler arası aralığı(interquartile range)**, üst ve alt çeyreklerinin farkıdır. Verinin orta kısmının değer olarak ne kadar uzakta yayıldığının bir ölçüsüdür.
+
+$$
+Çeyreklerarası Aralık = Üst Çeyrek-Alt Çeyrek
+$$
+
+Püskürme süresi için çeyreklerarası aralığı `IQR` işlevi ile bulabiliriz:
+
+```{r echo=TRUE}
+# IQR işlevinin uygulanması
+IQR(duration)
+```
+
+## Kutu Grafiği
+
+Bir değişkenin **kutu çizimi(box plot)**, dörtte birlik kısımlarının yanı sıra en küçük ve en büyük değerlerine dayalı bir grafik temsilidir. Veri dağılımının görsel bir şeklini sağlamaya çalışır.
+
+Püskürme süresi için kutu grafiğini `boxplot` işlevi ile çizebiliriz:
+
+```{r echo=TRUE}
+# boxplot işlevinin uygulanması, yatay bir kutu çizimi
+boxplot(duration, horizontal = TRUE)
+```
+
+## Varyans
+
+Varyans, gözlem değerlerinin ortalama etrafında nasıl dağıldığının sayısal bir ölçüsüdür.
+
+Örneklem varyansı:
+
+$$
+s^{2}=\frac{1}{n-1} \sum_{i=1}^{n}\left(x_{i}-\bar{x}\right)^{2}
+$$
+
+Kitle varyansı:
+
+$$
+\sigma^{2}=\frac{1}{N} \sum_{i=1}^{N}\left(x_{i}-\mu\right)^{2}
+$$
+
+Püskürme süresi için varyansı `var` işlevi ile bulabiliriz:
+
+```{r echo=TRUE}
+# var işlevinin uygulanması
+var(duration)
+```
+
+## Standart Sapma
+
+**Standart sapma,** varyansın kareköküdür.
+
+Püskürme süresi için standart sapmayı `sd` işlevi ile bulabiliriz:
+
+```{r echo=TRUE}
+# sd işlevinin uygulanması
+sd(duration)
+```
+
+## Kovaryans
+
+Bir veri kümesindeki iki değişken *x* ve *y*'nin **kovaryans**ı, ikisinin doğrusal olarak nasıl ilişkili olduğunu ölçer. Pozitif bir kovaryans, değişkenler arasında pozitif doğrusal bir ilişkiyi gösterirken, negatif bir kovaryans ise bunun tersini gösterir.
+
+Örneklem kovaryansı:
+
+$$
+s_{x y}=\frac{1}{n-1} \sum_{i=1}^{n}\left(x_{i}-\bar{x}\right)\left(y_{i}-\bar{y}\right)
+$$
+
+Kitle kovaryansı:
+
+$$
+\sigma_{x y}=\frac{1}{N} \sum_{i=1}^{N}\left(x_{i}-\mu_{x}\right)\left(y_{i}-\mu_{y}\right)
+$$
+
+Püskürme süresi ve bekleme zamanı arasındaki kovaryansı `cov` işlevi ile bulabiliriz:
+
+```{r echo=TRUE}
+# cov işlevinin uygulanması
+cov(duration, waiting)
+```
+
+## Korelasyon Katsayısı
+
+Bir veri kümesindeki iki değişkenin **korelasyon katsayısı**, kovaryanslarının bireysel standart sapmalarının çarpımına bölünmesine eşittir. İkisinin doğrusal olarak nasıl ilişkili olduğuna dair normalleştirilmiş bir ölçümdür.
+
+Örneklem korelasyon katsayısı:
+
+$$
+\tau_{x y}=\frac{s_{x y}}{s_{x} s_{y}}
+$$
+
+Kitle korelasyon katsayısı:
+
+$$
+\rho_{x y}=\frac{\sigma_{x y}}{\sigma_{x} \sigma_{y}}
+$$
+
+Korelasyon katsayısının 1'e yakın olması, değişkenlerin pozitif doğrusal olarak ilişkili olduğunu ve dağılım grafiğinin neredeyse pozitif eğimli düz bir çizgi boyunca düştüğünü gösterir. -1 için, değişkenlerin negatif doğrusal olarak ilişkili olduğunu ve dağılım grafiğinin neredeyse negatif eğimli düz bir çizgi boyunca düştüğünü gösterir. Ve sıfır için, değişkenler arasında zayıf bir doğrusal ilişki olduğunu gösterir.
+
+Püskürme süresi ve bekleme zamanı arasındaki korelasyon katsayısı `cor` işlevi ile bulabiliriz:
+
+```{r echo=TRUE}
+# cor işlevinin uygulanması
+cor(duration, waiting)
+```
+
+## Merkezi Moment
+
+Bir değişkene ait gözlemlerin kitlesi için k-inci **merkezi momenti**(ortalama ile ilgili momenti):
+
+$$
+\mu_{k}=\frac{1}{N} \sum_{i=1}^{N}\left(x_{i}-\mu\right)^{k}
+$$
+
+Benzer şekilde bir değişkene ait gözlemlerin örneklemi için k-inci **merkezi momenti**:
+
+$$
+m_{k}=\frac{1}{n} \sum_{i=1}^{n}\left(x_{i}-\bar{x}\right)^{k}
+$$
+
+Uygulamada, kitle için ikinci merkezi moment varyansa eşittir.
+
+Püskürme süresi için 3-üncü momenti bulalım. Bunun için `e1071` paketinden `moment` işlevini kullanacağız:
+
+```{r echo=TRUE}
+library(e1071)
+# moment işlevinin uygulanması
+moment(duration, order=3, center=TRUE)
+```
+
+## Çarpıklık
+
+Bir değişkenin çarpıklığı, $\mu_{2}$ ve $\mu_{3}$'ün ikinci ve üçüncü merkezi momentler olduğu aşağıdaki formülle tanımlanır.
+
+$$
+\gamma_{1}=\mu_{3} / \mu_{2}^{3 / 2}
+$$
+
+Sezgisel olarak, çarpıklık bir simetri ölçüsüdür. Bir kural olarak, negatif çarpıklık, gözlem değerlerinin ortalamasının ortancadan daha az olduğunu ve dağılımın sola eğimli olduğunu gösterir. Pozitif çarpıklık, gözlem değerlerinin ortalamasının ortancadan daha büyük olduğunu ve dağılımın sağa eğimli olduğunu gösterir.
+
+Püskürme süresinin çarpıklığını bulmak için `e1071` paketinden `skewness` işlevini kullanacağız:
+
+```{r echo=TRUE}
+# skewness işlevinin uygulanması
+skewness(duration)
+```
+
+## Basıklık
+
+Bir değişkenin çarpıklığı, $\mu_{2}$ ve $\mu_{4}$'ün ikinci ve üçüncü merkezi momentler olduğu aşağıdaki formülle tanımlanır.
+
+$$
+\gamma_{2}=\mu_{4} / \mu_{2}^{2}-3
+$$
+
+Sezgisel olarak, *aşırı basıklık*, dağılımın *kuyruk şekli*ni tanımlar. Normal dağılım sıfır aşırı basıklığa ve dolayısıyla standart kuyruk şekline sahiptir. Dolayısıyla **mesokurtik** olduğu söylenir. Negatif aşırı basıklık, *ince kuyruklu* bir dağılıma işaret eder ve **platikurtik** olduğu söylenir. Pozitif aşırı basıklık, *kalın kuyruklu* bir dağılımı gösterir ve **leptokurtik** olduğu söylenir.
+
+Püskürme süresinin basıklığını bulmak için `e1071` paketinden `kurtosis` işlevini kullanacağız:
+
+```{r echo=TRUE}
+# skewness işlevinin uygulanması
+kurtosis(duration)
+```

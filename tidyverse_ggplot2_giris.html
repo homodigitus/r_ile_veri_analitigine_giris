@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>tidyverse ve ggplot2</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Murat Öztürkmen" />
+    <meta name="date" content="2020-10-08" />
+    <script src="libs/header-attrs/header-attrs.js"></script>
+    <link href="libs/remark-css/default.css" rel="stylesheet" />
+    <link href="libs/remark-css/default-fonts.css" rel="stylesheet" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# tidyverse ve ggplot2
+## veri düzenleme ve görselleştirme
+### Murat Öztürkmen
+### 2020-10-08
+
+---
+
+
+background-image: url("img/tidyverse_pic1.png")
+background-position: center
+background-size: contain
+
+
+
+---
+
+# R'da veri işleme
+
+![tidyverse alet kutusu](img/tidyverse_pic2.png)
+
+---
+
+class: inverse-ns, center
+
+# R'da veri işleme
+
+## &lt;span style = 'color:#E69F00'&gt;tidyverse&lt;/span&gt; paketi, veri analizi ve veri görselleştime
+## için &lt;span style = 'color:#56B4E9'&gt;kullanici dostu ve tutarli&lt;/span&gt; bir araçlar kümesidir  
+
+---
+
+background-image: url(https://raw.githubusercontent.com/tidyverse/tidyverse/master/man/figures/logo.png)
+background-position: 90% 10%
+## `library(tidyverse)`  
+## şu çekirdek paketler yüklenir: 
+
+- [ggplot2](http://ggplot2.tidyverse.org), veri görselleştirme için.
+- [dplyr](http://dplyr.tidyverse.org), veri işleme için.
+- [tidyr](http://tidyr.tidyverse.org), veri düzenleme için.
+- [readr](http://readr.tidyverse.org), veri okuma için.
+- [purrr](http://purrr.tidyverse.org), işlevsel programlama için.
+- [tibble](http://tibble.tidyverse.org), modern veri çerçevesi için.
+- [stringr](https://github.com/tidyverse/stringr), dizgeler için.
+- [forcats](https://github.com/hadley/forcats), kategorik değişkenler için.
+
+---
+
+background-image: url(http://hexb.in/hexagons/readr.png)
+background-position: 93% 10%
+
+# veri okuma
+## &lt;span style = 'color:#E69F00'&gt;readr&lt;/span&gt;
+
+Function       | Reads
+-------------- | --------------------------
+`read_csv()`   | Comma separated values
+`read_csv2()`  | Semi-colon separate values
+`read_delim()` | General delimited files
+`read_fwf()`   | Fixed width files
+`read_log()`   | Apache log files
+`read_table()` | Space separated files
+`read_tsv()`   | Tab delimited values
+
+---
+
+## veri yazma
+
+Function            | Writes
+------------------- | ----------------------------------------
+`write_csv()`       | Comma separated values
+`write_excel_csv()` | CSV that you plan to open in Excel
+`write_delim()`     | General delimited files
+`write_file()`      | A single string, written as is
+`write_lines()`     | A vector of strings, one string per line
+`write_tsv()`       | Tab delimited values
+`write_rds()`       | A data type used by R to save objects
+`write_sas()`       | SAS .sas7bdat files
+`write_xpt()`       | SAS transport format, .xpt
+`write_sav()`       | SPSS .sav files
+`write_stata()`     | Stata .dta files
+
+---
+
+## The main verbs of `dplyr`
+
+### `select()`
+
+### `filter()`
+
+### `mutate()`
+
+### `arrange()`
+
+### `summarize()`
+
+### `group_by()`
+
+
+---
+
+## The main verbs of `dplyr`
+
+### &lt;span style = 'color:#E69F00'&gt;&lt;code&gt;select()&lt;/code&gt;&lt;/span&gt; = &lt;span style = 'color:#56B4E9'&gt;degiskenlerin(sütunlarin) altkümesi&lt;/span&gt;
+
+### `filter()`
+
+### `mutate()`
+
+### `arrange()`
+
+### `summarize()`
+
+### `group_by()`
+
+---
+
+## The main verbs of `dplyr`
+
+### `select()`
+
+### &lt;span style = 'color:#E69F00'&gt;&lt;code&gt;filter()&lt;/code&gt;&lt;/span&gt; = &lt;span style = 'color:#56B4E9'&gt;satirlarin filtrelenmesi&lt;/span&gt;
+
+### `mutate()`
+
+### `arrange()`
+
+### `summarize()`
+
+### `group_by()`
+
+---
+
+## The main verbs of `dplyr`
+
+### `select()` 
+
+### `filter()`
+
+### &lt;span style = 'color:#E69F00'&gt;&lt;code&gt;mutate()&lt;/code&gt;&lt;/span&gt; = &lt;span style = 'color:#56B4E9'&gt;degisken olusturma&lt;/span&gt;
+
+### `arrange()`
+
+### `summarize()`
+
+### `group_by()`
+
+---
+
+## The main verbs of `dplyr`
+
+### `select()`
+
+### `filter()`
+
+### `mutate()`
+
+### &lt;span style = 'color:#E69F00'&gt;&lt;code&gt;arrange()&lt;/code&gt;&lt;/span&gt; = &lt;span style = 'color:#56B4E9'&gt;degiskenleri siralama&lt;/span&gt;
+
+### `summarize()`
+
+### `group_by()`
+
+---
+
+## The main verbs of `dplyr`
+
+### `select()` 
+
+### `filter()`
+
+### `mutate()` 
+
+### `arrange()`
+
+### &lt;span style = 'color:#E69F00'&gt;&lt;code&gt;summarize()&lt;/code&gt;&lt;/span&gt; = &lt;span style = 'color:#56B4E9'&gt;özet istatistikler&lt;/span&gt;
+
+### `group_by()`
+
+---
+
+## The main verbs of `dplyr`
+
+### `select()`
+
+### `filter()`
+
+### `mutate()`
+
+### `arrange()`
+
+### `summarize()`
+
+### &lt;span style = 'color:#E69F00'&gt;&lt;code&gt;group_by()&lt;/code&gt;&lt;/span&gt; = &lt;span style = 'color:#56B4E9'&gt;degisken olusturma&lt;/span&gt;
+
+---
+
+class: inverse-ns, center
+
+# Tali Yol: Zincir/Boru İşlemcisi
+
+# &lt;span style = 'color:#E69F00'&gt;&lt;code&gt;%&gt;%&lt;/code&gt;&lt;/span&gt;
+## bir işlevin sonucunu başka bir işleve aktarır
+
+---
+
+background-image: url(http://hexb.in/hexagons/ggplot2.png)
+background-position: 90% 10%
+
+# ggplot2: R'da Zarif Veri Görselleştirme
+
+## katmanlı bir grafik grameri
+
+---
+background-image: url(http://hexb.in/hexagons/ggplot2.png)
+background-position: 90% 10%
+
+# ggplot2: R'da Zarif Veri Görselleştirme
+
+## &lt;span style = 'color:#E5E5E5'&gt;katmanli bir grafik grameri&lt;/span&gt;
+## Veriler estetikle eşleştirilir; İstatistikler ve çizimle bağlanır
+
+---
+background-image: url(http://hexb.in/hexagons/ggplot2.png)
+background-position: 90% 10%
+
+# ggplot2: R'da Zarif Veri Görselleştirme
+
+## &lt;span style = 'color:#E5E5E5'&gt;katmanli bir grafik grameri&lt;/span&gt;
+## &lt;span style = 'color:#E5E5E5'&gt;Veriler estetikle eslestirilir; Istatistikler ve çizimle baglanir&lt;/span&gt;
+
+---
+
+background-image: url("img/ggplot2_pic2.png")
+background-position: center
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

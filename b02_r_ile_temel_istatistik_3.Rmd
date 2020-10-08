@@ -1,0 +1,878 @@
+---
+title: "R ile Temel İstatistik-3"
+author: "Murat Öztürkmen"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    code_folding: hide
+    highlight: kate
+    lightbox: no
+    number_sections: yes
+    self_contained: yes
+    thumbnails: no
+  html_document:
+    df_print: paged
+---
+
+```{r setup, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+# Tip 2 Hata
+
+Hipotez testinde **Tip II hata**, geçersiz bir boş hipotezin reddedilmesindeki başarısızlıktan kaynaklanır. Tip II hatadan kaçınma olasılığı hipotez testinin **gücü** olarak adlandırılır ve $1-\beta$ quantity miktarı ile gösterilir.
+
+Aşağıdaki eğitimlerde, hipotez testiyle ilgili önceki tartışmalarımızdan senaryolara dayalı olarak bir hipotez testinin gücünü nasıl hesaplayacağımızı gösteriyoruz. Yaklaşım, boş hipotezin reddedilmeyeceği bölgenin parametrik bir tahminine dayanmaktadır. Tip II hata olasılığı daha sonra varsayımsal bir gerçek değere dayalı olarak türetilir.
+
+## Varyans Bilindiğinde Kitle Ortalamasının Alt Kuyruk Testinin Tip 2 Hatası
+
+Kitle ortalamasının alt kuyruk testinde, sıfır hipotezi, gerçek kitle ortalamasının μ belirli bir varsayımsal değer olan μ0'dan daha büyük olduğunu iddia eder:
+
+$$
+\mu \geq \mu_{0}
+$$
+
+Rastgele bir örneğe dayanan hipotez testi, gerçek kitle ortalaması μ aslında μ0'dan küçük olsa bile sıfır hipotezini reddedemezse tip II hata oluşur.
+
+Kitlenin bilinen varyansı σ2 olduğunu varsayalım. Merkezi Limit Teoremine göre, yeterince büyük n boyutlu örneklerin tüm olası ortalamalarının kitlenin yaklaşık olarak normal dağılımı izler. Dolayısıyla, boş hipotezin reddedilmeyeceği örneklem araçlarının aralığını hesaplayabilir ve ardından tip II hata olasılığının bir tahminini elde edebiliriz.
+
+Örnek: Üreticinin bir ampulün ortalama ömrünün 10.000 saatten fazla olduğunu iddia ettiğini varsayalım. Gerçek ortalama ampul ömrünün 9.950 saat ve kitle standart sapmasının 120 saat olduğunu varsayın. .05 anlamlılık düzeyinde, 30 ampullük bir örneklem büyüklüğünde tip II hata olma olasılığı nedir?
+
+Çözüm: Ortalamanın standart sapması, `sem` hesaplayarak başlıyoruz.
+
+```{r echo=TRUE}
+# örneklem genişliği
+n = 30
+
+# kitle standart sapması
+sigma = 120
+
+# standart hata
+sem = sigma/sqrt(n) 
+sem
+```
+
+Daha sonra, boş hipotez μ ≥ 10000'in reddedilmeyeceği örnek ortalamalarının alt sınırını hesaplıyoruz.
+
+```{r echo=TRUE}
+# anlamlılık düzeyi
+alpha = .05        
+
+# hipotez alt sınırı
+mu0 = 10000          
+q = qnorm(alpha, mean=mu0, sd=sem)
+q
+```
+
+Bu nedenle, hipotez testinde örneklem ortalaması 9964'ten büyük olduğu sürece, boş hipotez reddedilmeyecektir. Gerçek kitle ortalamasının 9950 olduğunu varsaydığımız için, örnek ortalamanın 9964'ün üzerindeki olasılığını hesaplayabiliriz ve böylece tip II hata olasılığını bulabiliriz.
+
+```{r echo=TRUE}
+# varsayılan gerçek ortalama
+mu = 9950              
+pnorm(q, mean=mu, sd=sem, lower.tail=FALSE) 
+```
+
+Ampul örnek boyutu 30 ise, gerçek ortalama ampul ömrü 9.950 saat ve kitle standart sapması 120 saat ise, o zaman sıfır hipotezini test etmek için tip II hata olasılığı μ ≥ 10000 .05 anlamlılık düzeyinde% 26.2 hipotez testinin gücü ise% 73,8'dir.
+
+## Varyans Bilindiğinde Kitle Ortalamasının Üst Kuyruk Testinin Tip 2 Hatası
+
+Kitle ortalamasının üst kuyruk testinde, sıfır hipotezi, gerçek kitle ortalamasının μ belirli bir varsayımsal değer olan μ0'dan daha büyük olduğunu iddia eder:
+
+$$
+\mu \leq \mu_{0}
+$$
+
+Rastgele bir örneğe dayanan hipotez testi, gerçek kitle ortalaması μ aslında μ0'dan büyük olsa bile sıfır hipotezini reddedemezse tip II hata oluşur.
+
+Kitlenin bilinen varyansı σ2 olduğunu varsayalım. Merkezi Limit Teoremine göre, yeterince büyük n boyutlu örneklerin tüm olası ortalamalarının kitlenin yaklaşık olarak normal dağılımı izler. Dolayısıyla, boş hipotezin reddedilmeyeceği örneklem araçlarının aralığını hesaplayabilir ve ardından tip II hata olasılığının bir tahminini elde edebiliriz.
+
+Örnek: Bir kurabiye poşeti üzerindeki yiyecek etiketinde tek bir çerezde en fazla 2 gram doymuş yağ bulunduğunu varsayalım. Çerez başına gerçek ortalama doymuş yağ miktarının 2.09 gram ve kitle standart sapmasının 0.25 gram olduğunu varsayın. .05 anlamlılık düzeyinde, 35 çerezlik bir örneklem büyüklüğü için tip II hataya sahip olma olasılığı nedir?
+
+Çözüm: Ortalamanın standart sapması, `sem` hesaplayarak başlıyoruz.
+
+```{r echo=TRUE}
+# örneklem genişliği
+n = 35
+
+# kitle standart sapması
+sigma = 0.25
+
+# standart hata
+sem = sigma/sqrt(n) 
+sem
+```
+
+Daha sonra, boş hipotez μ ≤ 2'nin reddedilmeyeceği örnek ortalamalarının alt sınırını hesaplıyoruz.
+
+```{r echo=TRUE}
+# anlamlılık düzeyi
+alpha = .05        
+
+# hipotez alt sınırı
+mu0 = 2          
+q = qnorm(alpha, mean=mu0, sd=sem)
+q
+```
+
+Bu nedenle, bir hipotez testinde örneklem ortalaması 2.0695'ten az olduğu sürece, boş hipotez reddedilmeyecektir. Gerçek kitle ortalamasının 2.09 olduğunu varsaydığımız için, örnek ortalamasının 2.0695'in altında olasılığını hesaplayabiliriz ve böylece tip II hata olasılığını bulabiliriz.
+
+```{r echo=TRUE}
+# varsayılan gerçek ortalama
+mu = 2.09             # assumed actual mean 
+pnorm(q, mean=mu, sd=sem)
+```
+
+Çerez örnek boyutu 35 ise, çerez başına gerçek ortalama doymuş yağ miktarı 2.09 gram ve kitle standart sapması 0.25 gram ise, o zaman sıfır hipotezi μ ≤ 2'yi 0,05 anlamlılık düzeyinde test etmek için tip II hata olasılığı şöyledir: % 31,4 ve hipotez testinin gücü % 68,6'dır.
+
+## Varyans Bilindiğinde Kitle Ortalamasının Çift Kuyruk Testinin Tip 2 Hatası
+
+Kitle ortalamasının iki kuyruklu bir testinde, sıfır hipotezi, gerçek popülasyon ortalamasının μ belirli bir varsayımsal değere μ0 eşit olduğunu iddia eder.
+
+$$
+\mu=\mu_{0}
+$$
+
+Rastgele bir örneğe dayanan hipotez testi, gerçek kitle ortalaması μ gerçekte μ0'dan farklı olsa bile sıfır hipotezini reddedemezse tip II hatası oluşur.
+
+Kitlenin bilinen bir varyansı σ2 olduğunu varsayalım. Merkezi Limit Teoremine göre, yeterince büyük n boyutlu örneklerin tüm olası ortalamalarının kitle yaklaşık olarak normal dağılımı izler. Dolayısıyla, boş hipotezin reddedilmeyeceği örneklem araçlarının aralığını hesaplayabilir ve ardından tip II hata olasılığının bir tahminini elde edebiliriz.
+
+Örnek: Geçen yıl Antarktika kolonisinde bulunan Kral Penguenlerin ortalama ağırlığının 15,4 kg olduğunu varsayalım. Gerçek ortalama kitle ağırlığının 15,1 kg ve kitle standart sapmasının 2,5 kg olduğunu varsayalım. .05 anlamlılık düzeyinde, 35 penguenden oluşan bir örneklem büyüklüğünde tip II hataya sahip olma olasılığı nedir?
+
+Çözüm: Ortalamanın standart sapması, `sem` i hesaplayarak başlarız:
+
+```{r echo=TRUE}
+# örneklem büyüklüğü
+n = 35                
+
+# kitle standart sapması
+sigma = 2.5           
+
+# standart sapma
+sem = sigma/sqrt(n)
+
+# standart hata
+sem    
+```
+
+Daha sonra, boş hipotez μ = 15.4'ün reddedilmeyeceği örnek ortalamaların alt ve üst sınırlarını hesaplarız.
+
+```{r echo=TRUE}
+# anlamlılık düzeyi
+alpha = .05        
+
+# hipotetik ortalama
+mu0 = 15.4            
+
+I = c(alpha/2, 1-alpha/2) 
+q = qnorm(I, mean=mu0, sd=sem) 
+q 
+```
+
+Bu nedenle, bir hipotez testinde örneklem ortalaması 14.572 ile 16.228 arasında olduğu sürece, boş hipotez reddedilmeyecektir. Gerçek popülasyon ortalamasının 15.1 olduğunu varsaydığımız için, her iki uç noktanın alt kuyruk olasılıklarını hesaplayabiliriz.
+
+```{r echo=TRUE}
+# gerçek ortalama
+mu = 15.1
+
+p = pnorm(q, mean=mu, sd=sem) 
+p 
+```
+
+Son olarak, tip II hata olasılığı, iki uç nokta arasındaki olasılıktır.
+
+```{r echo=TRUE}
+# p[2]-p[1]
+diff(p)               
+```
+
+Penguen örneklem büyüklüğü 35 ise, gerçek ortalama popülasyon ağırlığı 15,1 kg ve popülasyon standart sapması 2,5 kg ise, 0,05 anlamlılık düzeyinde μ = 15,4 boş hipotezini test etmek için tip II hata olasılığı% 89,1'dir ve hipotez testinin gücü% 10.9'dur.
+
+## Varyans Bilindiğinmediğinde Kitle Ortalamasının Alt Kuyruk Testinin Tip 2 Hatası
+
+Kitle ortalamasının alt kuyruk testinde, sıfır hipotezi, gerçek kitle ortalamasının μ belirli bir varsayımsal değer olan μ0'dan daha büyük olduğunu iddia eder:
+
+$$
+\mu \geq \mu_{0}
+$$
+
+Rastgele bir örneğe dayanan hipotez testi, gerçek kitle ortalaması μ aslında μ0'dan küçük olsa bile sıfır hipotezini reddedemezse tip II hata oluşur.
+
+Örnek varyansı s2 olsun. Yeterince büyük n için, n boyutunun tüm olası örneklemlerinin aşağıdaki istatistiklerinin kitlesi, yaklaşık olarak n - 1 serbestlik derecesine sahip bir Student t dağılımıdır:
+
+$$
+\frac{\bar{x}-\mu}{s / \sqrt{n}}
+$$
+
+Örnek: Üreticinin bir ampulün ortalama ömrünün 10.000 saatten fazla olduğunu iddia ettiğini varsayalım. 30 ampulden oluşan rastgele bir örnekte, kullanım ömrünün standart sapmasının 125 saat olduğunu varsayalım. Gerçek ortalama ampul ömrü 9.950 saat ise, .05 anlamlılık düzeyinde bir hipotez testi için tip II hata olasılığı nedir?
+
+Çözüm: Ortalamanın standart sapması, `sem` hesaplayarak başlıyoruz.
+
+```{r echo=TRUE}
+# örneklem genişliği
+n = 30
+
+# örnek standart sapması
+s = 120
+
+# standart hata tahmini
+SE = s/sqrt(n)
+SE
+```
+
+Daha sonra, boş hipotez μ ≥ 10000'in reddedilmeyeceği örnek ortalamalarının alt sınırını hesaplıyoruz.
+
+```{r echo=TRUE}
+# anlamlılık düzeyi
+alpha = .05        
+
+# hipotez alt sınırı
+mu0 = 10000          
+q = mu0 + qt(alpha, df=n-1) * SE
+q
+```
+
+Bu nedenle, bir hipotez testinde örneklem ortalaması 9961.2'den büyük olduğu sürece, boş hipotez reddedilmeyecektir. Gerçek kitle ortalamasının 9950 olduğunu varsaydığımız için, örnek ortalamasının 9961.2 üzerindeki olasılığını hesaplayabiliriz ve böylece tip II hata olasılığını bulabiliriz.
+
+```{r echo=TRUE}
+# varsayılan gerçek ortalama
+mu = 9950              
+pt((q - mu)/SE, df=n-1, lower.tail=FALSE) 
+```
+
+Ampul örnek boyutu 30 ise, örnek standart varyans 125 saat ve gerçek ortalama ampul ömrü 9.950 saat ise, o zaman sıfır hipotezi μ ≥ 10000'i 0,05 anlamlılık düzeyinde test etmek için tip II hata olasılığı% 31,3'tür. hipotez testinin gücü ise% 68,7'dir.
+
+## Varyans Bilinmediğinde Kitle Ortalamasının Üst Kuyruk Testinin Tip 2 Hatası
+
+Kitle ortalamasının üst kuyruk testinde, sıfır hipotezi, gerçek kitle ortalamasının μ belirli bir varsayımsal değer olan μ0'dan daha büyük olduğunu iddia eder:
+
+$$
+\mu \leq \mu_{0}
+$$
+
+Rastgele bir örneğe dayanan hipotez testi, gerçek kitle ortalaması μ aslında μ0'dan büyük olsa bile sıfır hipotezini reddedemezse tip II hata oluşur.
+
+Örnek varyansı s2 olsun. Yeterince büyük n için, n boyutunun tüm olası örneklemlerinin aşağıdaki istatistiklerinin kitlesi, yaklaşık olarak n - 1 serbestlik derecesine sahip bir Student t dağılımıdır:
+
+$$
+\frac{\bar{x}-\mu}{s / \sqrt{n}}
+$$
+
+Bu, boş hipotezin reddedilmeyeceği örneklem ortalamalarının aralığını hesaplamamıza ve tip II hata olasılığını elde etmemize izin verir.
+
+Örnek: Bir kurabiye poşeti üzerindeki yiyecek etiketinde, tek bir çerezde en fazla 2 gram doymuş yağ bulunduğunu varsayalım. Rastgele 35 kurabiyeden oluşan bir örnekte, doymuş yağın standart sapmasının 0,3 gram olduğunu varsayalım. Çerez başına gerçek ortalama doymuş yağ miktarı 2.09 gram ise, .05 anlamlılık düzeyinde bir hipotez testi için tip II hata olasılığı nedir?
+
+Çözüm: Ortalamanın standart sapması, `sem` hesaplayarak başlıyoruz.
+
+```{r echo=TRUE}
+# örneklem genişliği
+n = 35
+
+# örnek standart sapması
+s = 0.3
+
+# standart hata tahmini
+SE = s/sqrt(n)
+SE
+```
+
+Daha sonra, boş hipotez μ ≤ 2'nin reddedilmeyeceği örnek ortalamalarının alt sınırını hesaplıyoruz.
+
+```{r echo=TRUE}
+# anlamlılık düzeyi
+alpha = .05        
+
+# hipotez alt sınırı
+mu0 = 2          
+q = mu0 + qt(alpha, df=n-1, lower.tail=FALSE) * SE
+q 
+```
+
+Bu nedenle, bir hipotez testinde örneklem ortalaması 2.0857'den az olduğu sürece, boş hipotez reddedilmeyecektir. Gerçek kitle ortalamasının 2.09 olduğunu varsaydığımız için, örnek ortalamasının 2.0857'nin altında olasılığını hesaplayabiliriz ve böylece tip II hata olasılığını bulabiliriz.
+
+```{r echo=TRUE}
+# varsayılan gerçek ortalama
+mu = 2.09              
+pt((q - mu)/SE, df=n-1)
+```
+
+Çerez örnek boyutu 35 ise, çerez başına doymuş yağın örnek standart sapması 0,3 gram ve çerez başına gerçek ortalama doymuş yağ miktarı 2,09 gram ise, bu durumda sıfır hipotezini μ at 2 test etmek için tip II hata olasılığı .05 anlamlılık düzeyi% 46,7 ve hipotez testinin gücü% 53,3'tür.
+
+## Varyans Bilinmediğinde Kitle Ortalamasının Çift Kuyruk Testinin Tip 2 Hatası
+
+Kitle ortalamasının iki kuyruklu bir testinde, sıfır hipotezi, gerçek popülasyon ortalamasının μ belirli bir varsayımsal değere μ0 eşit olduğunu iddia eder.
+
+$$
+\mu=\mu_{0}
+$$
+
+Rastgele bir örneğe dayanan hipotez testi, gerçek kitle ortalaması μ gerçekte μ0'dan farklı olsa bile sıfır hipotezini reddedemezse tip II hatası oluşur.
+
+Örnek varyansı s2 olsun. Yeterince büyük n için, n boyutunun tüm olası örneklemlerinin aşağıdaki istatistiklerinin kitlesi, yaklaşık olarak n - 1 serbestlik derecesine sahip bir Student t dağılımıdır:
+
+$$
+\frac{\bar{x}-\mu}{s / \sqrt{n}}
+$$
+
+Bu, boş hipotezin reddedilmeyeceği örneklem ortalamalarının aralığını hesaplamamıza ve tip II hata olasılığını elde etmemize izin verir.
+
+Örnek: Geçen yıl Antarktika kolonisinde bulunan Kral Penguenlerin ortalama ağırlığının 15,4 kg olduğunu varsayalım. Gerçek ortalama kitle ağırlığının 15,1 kg ve kitle standart sapmasının 2,5 kg olduğunu varsayalım. .05 anlamlılık düzeyinde, 35 penguenden oluşan bir örneklem büyüklüğünde tip II hataya sahip olma olasılığı nedir?
+
+Çözüm: Ortalamanın standart sapması, `sem` i hesaplayarak başlarız:
+
+```{r echo=TRUE}
+# örneklem büyüklüğü
+n = 35                
+
+# kitle standart sapması
+s = 2.5           
+
+# standart hata tahmini
+SE = s/sqrt(n)
+SE
+```
+
+Daha sonra, boş hipotez μ = 15.4'ün reddedilmeyeceği örnek ortalamaların alt ve üst sınırlarını hesaplarız.
+
+```{r echo=TRUE}
+# anlamlılık düzeyi
+alpha = .05        
+
+# hipotetik ortalama
+mu0 = 15.4            
+
+I = c(alpha/2, 1-alpha/2) 
+q = mu0 + qt(I, df=n-1) * SE
+q
+```
+
+Bu nedenle, bir hipotez testinde örneklem ortalaması 14.541 ile 16.259 arasında olduğu sürece, boş hipotez reddedilmeyecektir. Gerçek popülasyon ortalamasının 15.1 olduğunu varsaydığımız için, her iki uç noktanın alt kuyruk olasılıklarını hesaplayabiliriz.
+
+```{r echo=TRUE}
+# gerçek ortalama
+mu = 15.1
+
+p = pt((q - mu)/SE, df=n-1)
+p
+```
+
+Son olarak, tip II hata olasılığı, iki uç nokta arasındaki olasılıktır.
+
+```{r echo=TRUE}
+# p[2]-p[1]
+diff(p)               
+```
+
+Penguen örneklem boyutu 35 ise, penguen ağırlığının örnek standart sapması 2,5 kg ve gerçek ortalama kitle ağırlığı 15,1 kg ise, o zaman sıfır hipotezi μ = 15,4'ü 0,05 anlamlılık düzeyinde test etmek için tip II hata olasılığı 89,8'dir. % ve hipotez testinin gücü% 10,2'dir.
+
+# İki Kitle için Çıkarım
+
+Veri örneklerine göre iki kitle arasındaki fark hakkında bir sonuca varmak genellikle gereklidir. Bu kısımda, normal olarak dağılmış iki kitle arasındaki ortalamalar ve oranlar arasındaki farkın nasıl tahmin edileceğini tartışacağız.
+
+## İki Bağımlı Örneklem için Kitle Ortalaması
+
+Aynı konunun tekrarlanan gözlemlerinden geliyorlarsa iki örneklem **bağımlıdır**. Burada, veri kitlesinin normal dağılımı takip ettiğini varsayıyoruz. **Eşleştirilmiş t-testi(paired t-test)** kullanarak, kitle ortalamalarının farkının bir aralık tahminini elde edebiliriz.
+
+`immer` isimli yerleşik veri setinde aynı tarlanın 1931 ve 1932 yıllarındaki arpa verimi kayıt altına alınmıştır. Verim verileri, veri çerçevesi sütunlarında Y1 ve Y2 olarak verilmiştir.
+
+```{r echo=TRUE}
+library(MASS)        
+head(immer)
+```
+
+Örnek: `immer` verisetinin normal dağılımı takip ettiğini varsayarsak, 1931 ve 1932 yılları arasındaki ortalama arpa verimleri arasındaki farkın % 95 güven aralığı tahminini bulun.
+
+Çözüm: Bağımlı örneklerin ortalamasındaki farkı hesaplamak için `t.test` işlevini uygularız. Eşleştirilmiş bir test olduğu için, `"paired"` argümanını `TRUE` olarak ayarız.
+
+```{r echo=TRUE}
+t.test(immer$Y1, immer$Y2, paired=TRUE)
+```
+
+Veri setindeki 1931-1932 yılları arasında arpa verimi ortalamalarındaki farkın% 95 güven aralığı 6.122 ile 25.705 aralığıdır.
+
+## İki Bağımsız Örneklem için Kitle Ortalaması
+
+İlişkili olmayan kitlelerden geliyorlarsa iki örneklem **bağımsızdır** ve örnekler birbirini etkilemez. Burada, kitlelerin normal dağılımı takip ettiğini varsayıyoruz. **Eşleştirilmemiş t-testini(unpaired t-test)** kullanarak, iki kitle ortalaması arasındaki farkın bir aralık tahminini elde edebiliriz.
+
+`mtcars` verisetinde 1974 yılında ABD'deki çeşitli otomobillerin `mpg` ismiyle gaz kilometre verileri bulunmaktadır:
+
+```{r echo=TRUE}
+mtcars$mpg
+```
+
+Aynı verisetinde araçların otomatik mi manuel mi oldukları `am` sütununda yer almaktadır:
+
+```{r echo=TRUE}
+mtcars$mpg
+```
+
+Özellikle, manuel ve otomatik şanzımanlar için gaz kilometre, iki bağımsız kitledir.
+
+Örnek: `mtcars` verilerinin normal dağılım izlediğini varsayarsak, manuel ve otomatik şanzımanların ortalama gaz kilometre arasındaki farkın % 95 güven aralığı tahminini bulun.
+
+Çözüm: Otomatik ve manuel araçlar için gaz kilometre verilerini elde edelim:
+
+```{r echo=TRUE}
+L = mtcars$am == 0 
+# otomatik şanzıman
+mpg.auto = mtcars[L,]$mpg 
+mpg.auto
+
+# manuel şanzıman
+mpg.manual = mtcars[!L,]$mpg 
+mpg.manual
+```
+
+Şimdi iki örnek verinin ortalamaları farkı hesaplamak için `t.test` işlevini uygulayabiliriz.
+
+```{r echo=TRUE}
+t.test(mpg.auto, mpg.manual)
+```
+
+`mtcars` verisinde otomatik şanzımanın ortalama kilometre ömrü 17.147 mpg ve manuel şanzıman 24.392 mpg'dir. Ortalama gaz kilometre farkının% 95 güven aralığı 3.2097 ile 11.2802 mpg arasındadır.
+
+Alternatif çözüm: Bağımlı değişkeni `mtcars$mpg`, `mtcars$am` tahmin değişkenine göre modelleyebilir ve ardından kitle ortalamalarının farkını tahmin etmek için `t.test` işlevini uygulayabiliriz.
+
+```{r echo=TRUE}
+t.test(mpg ~ am, data=mtcars) 
+```
+
+## İki Kitle Oranının Karşılaştırılması
+
+İki farklı kitlede yapılan bir anket farklı sonuçlar üretecektir. Genellikle iki kitle arasındaki anket yanıt oranını karşılaştırmak gerekir. Burada, kitlenin normal dağılımı takip ettiğini varsayıyoruz.
+
+`quine` adlı yerleşik veri setinde, bir Avustralya kasabasındaki çocuklar etnik geçmişe, cinsiyete, yaşa, öğrenme durumuna ve okula gitmeyen gün sayısına göre sınıflandırılır.
+
+```{r echo=TRUE}
+library(MASS)
+head(quine)
+```
+
+Burada `Eth`, öğrencinin Aborijin olup olmadığını ("A" veya "N") ve `Gender` sütunu Erkek veya Kadın ("M" veya "F") olup olmadığını gösterir.
+
+R'de, öğrenci etnik kökenini `table` işlevi ile cinsiyete göre hesaplayabiliriz. Sonuçta görüldüğü gibi, Aborijin öğrenci nüfusu içinde 38 öğrenci kadındır. Aborjin olmayan öğrenci nüfusu içinde 42'si kadındır.
+
+```{r echo=TRUE}
+library(MASS)
+head(quine)
+```
+
+Örnek: `quine` içindeki verilerin normal dağılımı izlediğini varsayarsak, Aborjin öğrencilerin kadın oranı ile Aborijin olmayan öğrencilerin kadın oranı arasındaki farkın her biri kendi etnik gruplarında bulunan% 95 güven aralığı tahminini bulun.
+
+Çözüm: Kadın oranlarındaki farkı hesaplamak için `prop.test` işlevini uygularız. Yates'in süreklilik düzeltmesi pedagojik nedenlerden dolayı devre dışı bırakıldı.
+
+```{r echo=TRUE}
+prop.test(table(quine$Eth, quine$Sex), correct=FALSE)
+```
+
+Aborjin öğrencilerin kadın oranı ile Aborijin olmayan öğrencilerin kadın oranı arasındaki farkın% 95 güven aralığı tahmini -% 15,6 ile% 16,7 arasındadır.
+
+# Uyum İyiliği
+
+Veri örneklerinden türetilen birçok istatistiksel miktarın Ki-kare dağılımını takip ettiği bulunmuştur. Dolayısıyla, bir kitlenin belirli bir teorik olasılık dağılımına uyup uymadığını test etmek için kullanabiliriz.
+
+## Çokterimli Uyum İyiliği
+
+Kitle, verileri kategorikse ve örtüşmeyen ayrı sınıfların bir kümesine aitse, **çokterimli(multinomial)** olarak adlandırılır.
+
+**Çok terimli dağılımın uyum testi** için boş hipotez, gözlemlenen frekansın (fi) her kategoride beklenen bir ei sayısına eşit olmasıdır. Aşağıdaki Ki-kare test istatistiklerinin p-değeri, belirli bir anlamlılık düzeyi α dan daha düşükse reddedilecektir.
+
+$$
+\chi^{2}=\sum_{i} \frac{\left(f_{i}-e_{i}\right)^{2}}{e_{i}}
+$$
+
+Yerleşik veri kümesi `survey`'de `Smoke` değişkeni, öğrencinin sigara içme alışkanlığı hakkındaki anket yanıtını kaydeder. Ankette tam olarak dört doğru yanıt olduğu için: `"Heavy", "Regul" (regularly), "Occas" (occasionally)` ve `"Never"`, `Smoke` verileri çokterimlidir. R'deki l`evels` işlevi ile doğrulanabilir.
+
+```{r echo=TRUE}
+library(MASS)        
+levels(survey$Smoke)
+```
+
+Nitel Verilerin Frekans Dağılımı konusunda tartışıldığı gibi, frekans dağılımını `table` işlevi ile bulabiliriz.
+
+```{r echo=TRUE}
+smoke.freq = table(survey$Smoke) 
+smoke.freq
+```
+
+Örnek: Kampüs sigara istatistiklerinin aşağıdaki gibi olduğunu varsayalım. Anketteki örnek verilerin onu .05 anlamlılık düzeyinde destekleyip desteklemediğini belirleyin.
+
+``` {.R}
+   Heavy   Never   Occas   Regul 
+    4.5%   79.5%    8.5%    7.5%
+```
+
+Çözüm: Kampüs sigara istatistiklerini, `smoke.prob` adlı bir değişkene kaydediyoruz. Daha sonra `chisq.test` fonksiyonunu uyguluyoruz ve Ki-Kare testini gerçekleştiriyoruz.
+
+```{r echo=TRUE}
+smoke.prob = c(.045, .795, .085, .075) 
+chisq.test(smoke.freq, p=smoke.prob)
+```
+
+0.991 p değeri .05 anlamlılık düzeyinden büyük olduğundan, anketteki örnek verilerin kampüs genelinde sigara içme istatistiklerini desteklediği şeklindeki boş hipotezi reddetmiyoruz.
+
+## Ki-Kare Bağımsızlık Testi
+
+İki rastgele değişken x ve y, bir değişkenin olasılık dağılımı diğerinin varlığından etkilenmiyorsa **bağımsız** olarak adlandırılır.
+
+Fij'in hem i'inci x kategorisine hem de y'nin j'inci kategorisine ait olan olayların gözlemlenen sıklık sayısı olduğunu varsayalım. Ayrıca, x ve y bağımsızsa eij'in karşılık gelen beklenen sayı olduğunu varsayalım. Aşağıdaki Ki-kare test istatistiklerinin p-değeri belirli bir anlamlılık düzeyinden α daha düşükse, bağımsızlık varsayımının boş hipotezi reddedilecektir.
+
+$$
+\chi^{2}=\sum_{i, j} \frac{\left(f_{i j}-e_{i j}\right)^{2}}{e_{i j}}
+$$
+
+Önceki kısımda Smoke değişkeni yanında öğrencilerin egzersiz seviyelerini belirten `Exer` değişkenini de ele alalım. Exer değişkeni için kategoriler de `"Freq" (frequently)`, `"Some"` ve `"None"` şeklindedir.
+
+R'deki tablo işlevi ile öğrencilerin sigara içme alışkanlıklarını egzersiz düzeyine göre hesaplayabiliriz. Sonuç, iki değişkenin **kontenjans tablosu(contingency table)** olarak adlandırılır.
+
+```{r echo=TRUE}
+library(MASS)
+
+# kontenjans tablosu
+tbl = table(survey$Smoke, survey$Exer) 
+tbl
+```
+
+Örnek: Öğrencilerin sigara içme alışkanlığının egzersiz düzeylerinden .05 anlamlılık düzeyinde bağımsız olup olmadığı hipotezini test edin.
+
+Çözüm: `chisq.test` işlevini kontenjans tablosu `tbl`'ye uygularız ve p-değerinin 0.4828 olduğunu buluruz:
+
+```{r echo=TRUE}
+chisq.test(tbl)
+```
+
+0,4828 p değeri .05 anlamlılık düzeyinden büyük olduğu için sigara içme alışkanlığının öğrencilerin egzersiz düzeyinden bağımsız olduğu şeklindeki boş hipotezi reddetmiyoruz.
+
+Genişletilmiş çözüm: Yukarıdaki çözümde bulunan uyarı mesajı, kontenjans tablosundaki küçük hücre değerlerinden kaynaklanmaktadır. Böyle bir uyarıdan kaçınmak için, `tbl`'nin ikinci ve üçüncü sütunlarını birleştirip `ctbl` adlı yeni bir tabloya kaydediyoruz. Daha sonra `chisq.test` fonksiyonunu `ctbl`'ye uyguluyoruz:
+
+```{r echo=TRUE}
+ctbl = cbind(tbl[,"Freq"], tbl[,"None"] + tbl[,"Some"]) 
+ctbl
+
+chisq.test(ctbl)
+```
+
+# Varyans Analizi
+
+Bir deney çalışmasında, deneklere çeşitli işlemler uygulanır ve yanıt verileri analiz için toplanır. Analizi gerçekleştirmek için kritik bir araç, **Varyans Analizidir (ANOVA)**. Bir araştırmacının tedavi sonucundan kolayca hesaplanan istatistiksel miktarlara dayalı olarak tedavi sonuçlarını ayırt etmesini sağlar.
+
+İstatistiksel süreç, iki ayrı yaklaşım aracılığıyla kitle varyanslarının tahminlerinden elde edilir. İlk yaklaşım, örneklem ortalamalarının varyansına dayanır ve ikincisi, örneklem varyanslarının ortalamasına dayanır. Aşağıda belirtildiği gibi ANOVA varsayımları altında, iki istatistiksel tahminin oranı F dağılımını izler. Bu nedenle, kritik bölgelerin tahminleri yoluyla farklı işlemlerden çeşitli yanıt verilerinin eşitliği üzerine sıfır hipotezini test edebiliriz.
+
+-   Tedavi yanıtları birbirinden bağımsızdır.
+
+-   Yanıt verileri normal dağılımı izler.
+
+-   Yanıt verilerinin varyansları aynıdır.
+
+## Tamamen Tesadüfi Tasarım
+
+Tamamen rastgele bir tasarımda, deneyde dikkate alınan yalnızca bir birincil faktör vardır. Test özneleri, birincil faktörün tedavi seviyelerine rastgele atanır.
+
+Bir fast food markası, test pazarlaması için 3 yeni menü üzerinde çalışıyor. Aynı popülariteye sahip olup olmadıklarını öğrenmek için, çalışmaya katılmak üzere 18 restoran rastgele seçiliyor. Tamamen tesadüfi tasarıma göre, restoranların 6'sı ilk yeni menü maddesini test etmek için rastgele seçilir, ikinci menü maddesi için 6 tanesi ve son menü maddesi için kalan 6 tanesi test edilir.
+
+Örnek: Aşağıdaki tablonun, bir haftalık test pazarlamasından sonra 18 restorandaki 3 yeni menü öğesinin satış rakamlarını temsil ettiğini varsayalım. .05 anlamlılık düzeyinde, 3 yeni menü öğesinin ortalama satış hacminin eşit olup olmadığını test edin.
+
+``` {.R}
+ Item1 Item2 Item3 
+    22    52    16 
+    42    33    24 
+    44     8    19 
+    52    47    18 
+    45    43    34 
+    37    32    39
+```
+
+Çözüm: İlk olarak veri çerçevesini oluşturalım:
+
+```{r echo=TRUE}
+item1 <- c(22,42,44,52,45,37)
+item2 <- c(52,33,8,47,43,32)
+item3 <- c(16,24,19,18,34,39)
+df1 <- as.data.frame(cbind(item1, item2, item3))
+df1
+```
+
+`df1`'in veri satırlarını tek bir `r` vektörüne birleştirelim:
+
+```{r echo=TRUE}
+r = c(t(as.matrix(df1)))
+r
+```
+
+Tedavi seviyeleri ve gözlem sayısı için yeni değişkenler atayalım:
+
+```{r echo=TRUE}
+# seviyeler
+f = c("item1", "item2", "item3")
+
+# seviye sayısı
+k = 3
+
+# seviye başına gözlem sayısı
+n = 6
+```
+
+3\. adımda `gl` işleviyle `r`'nin her bir öğesine karşılık gelen faktörlerin bir vektörünü oluşturalım.
+
+```{r echo=TRUE}
+tm = gl(k, 1, n*k, factor(f))
+tm
+```
+
+`aov` işlevini, `r` yanıt faktörü `tm` ile tanımlayan bir formüle uygulayalım:
+
+```{r echo=TRUE}
+av = aov(r ~ tm)
+```
+
+ANOVA tablosu:
+
+```{r echo=TRUE}
+summary(av)
+```
+
+0.11'lik p-değeri .05 anlamlılık seviyesinden büyük olduğu için, yeni menü öğelerinin ortalama satış hacminin hepsinin eşit olduğu şeklindeki boş hipotezi reddetmiyoruz.
+
+## Tesadüfi Blok Tasarımı
+
+**Tesadüfi blok tasarımında**, deneyde dikkate alınan yalnızca bir birincil faktör vardır. Benzer test konuları bloklar halinde gruplandırılır. Her blok, rastgele sırayla birincil faktörün tüm tedavi seviyelerine karşı test edilir. Bu, diğer yabancı faktörlerin olası etkisini ortadan kaldırmayı amaçlamaktadır.
+
+Bir fast food markası, test pazarlaması için 3 yeni menü üzerinde çalışıyor. Aynı popülariteye sahip olup olmadıklarını öğrenmek için, çalışmaya katılmak üzere 6 franchise restoranı rastgele seçiliyor. Tesadüfi blok tasarımına göre, her restoran 3 yeni menü öğesinin tamamını test edecek. Dahası, bir restoran haftada yalnızca bir menü öğesini test edecek ve tüm menü öğelerini pazarlamak 3 hafta sürüyor. Her restoran için menü öğelerinin test sırası da rastgele atanır.
+
+Örnek: Aşağıdaki tablodaki her satırın, bir hafta test pazarlamasından sonra bir restorandaki 3 yeni menünün satış rakamlarını temsil ettiğini varsayalım. .05 anlamlılık düzeyinde, 3 yeni menü öğesinin ortalama satış hacminin eşit olup olmadığını test edin.
+
+``` {.R}
+ Item1 Item2 Item3 
+    31    27    24 
+    31    28    31 
+    45    29    46 
+    21    18    48 
+    42    36    46 
+    32    17    40
+```
+
+Çözüm: İlk olarak veri çerçevesini oluşturalım:
+
+```{r echo=TRUE}
+item1 <- c(31,31,45,21,42,32)
+item2 <- c(27,28,29,18,36,17)
+item3 <- c(24,31,46,48,46,40)
+df2 <- as.data.frame(cbind(item1, item2, item3))
+df2
+```
+
+`df1`'in veri satırlarını tek bir `r` vektörüne birleştirelim:
+
+```{r echo=TRUE}
+r = c(t(as.matrix(df2)))
+r
+```
+
+Tedavi seviyeleri ve gözlem sayısı için yeni değişkenler atayalım:
+
+```{r echo=TRUE}
+# seviyeler
+f = c("item1", "item2", "item3")
+
+# seviye sayısı
+k = 3
+
+# seviye başına gözlem sayısı
+n = 6
+```
+
+3\. adımda `gl` işleviyle `r`'nin her bir öğesine karşılık gelen faktörlerin bir vektörünü oluşturalım.
+
+```{r echo=TRUE}
+tm = gl(k, 1, n*k, factor(f))
+tm
+```
+
+Benzer şekilde, yanıt verisindeki her öğe için bir blok faktörleri vektörü oluşturalım.
+
+```{r echo=TRUE}
+blk = gl(n, k, k*n)             
+blk
+```
+
+`aov` işlevini, `r` yanıt faktörü `tm` ve `blk` ile tanımlayan bir formüle uygulayalım:
+
+```{r echo=TRUE}
+av = aov(r ~ tm + blk)
+```
+
+ANOVA tablosu:
+
+```{r echo=TRUE}
+summary(av)
+```
+
+0.032'lik p-değeri .05 önem seviyesinden daha az olduğu için, yeni menü öğelerinin ortalama satış hacminin eşit olduğu şeklindeki boş hipotezini reddediyoruz.
+
+## Faktör Tasarımı
+
+**Faktör tasarımda**, deneyde dikkate alınan birden fazla faktör vardır. Denekler, her faktör kombinasyonunun tedavi seviyelerine rastgele atanır.
+
+Bir fast food markası, Amerika kıtasının hem Doğu hem de Batı Kıyılarında 3 yeni menü öğesini üzerinde çalışıyor. Aynı popülariteye sahip olup olmadıklarını öğrenmek için, her bir Sahilden 12 franchise sahibi restoran araştırmaya katılmak üzere rastgele seçilir. Faktör tasarımına göre, Doğu Yakası'ndaki 12 restoran içinde, ilk yeni menü öğesini test etmek için 4 tanesi, ikinci menü öğesi için 4 tanesi ve son menü öğesi için kalan 4 tanesi rasgele seçilmiştir. West Coast'tan 12 restoran da aynı şekilde düzenlenmiştir.
+
+Örnek: Aşağıdaki tabloların, bir haftalık test pazarlamasından sonra 3 yeni menü öğesinin satış rakamlarını temsil ettiğini varsayalım. Üst tablodaki her satır, 3 farklı East Coast restoranının satış rakamlarını temsil etmektedir. Alt yarı, West Coast restoranlarını temsil ediyor. .05 anlamlılık düzeyinde, yeni menü öğelerinin ortalama satış hacminin eşit olup olmadığını test edin. İki kıyı bölgesinin ortalama satış hacminin farklı olup olmadığına da karar verin.
+
+``` {.R}
+East Coast: 
+========== 
+   Item1 Item2 Item3 
+E1    25    39    36 
+E2    36    42    24 
+E3    31    39    28 
+E4    26    35    29 
+ 
+West Coast: 
+========== 
+   Item1 Item2 Item3 
+W1    51    43    42 
+W2    47    39    36 
+W3    47    53    32 
+W4    52    46    33
+```
+
+Çözüm: Veriyi içeri alalım:
+
+```{r echo=TRUE}
+df3 <- read.csv("data/fastfood-3.csv")
+df3
+```
+
+`df3`'teki veri satırlarını tek bir `r` vektörüne birleştirelim:
+
+```{r echo=TRUE}
+r = c(t(as.matrix(df3)))
+r
+```
+
+Tedavi seviyeleri ve gözlem sayısı için yeni değişkenler atayalım:
+
+```{r echo=TRUE}
+f1 = c("Item1", "Item2", "Item3")
+f2 = c("East", "West")
+
+# ilk faktörlerin sayısı
+k1 = length(f1)
+
+# ikinci faktörlerin sayısı
+k2 = length(f2)
+
+# faktör başına gözlem sayısı
+n = 4
+```
+
+`gl` işlevi ile 3. adımda eleman-eleman yanıt verisinin 1. tedavi seviyesine karşılık gelen bir vektör oluşturalım.
+
+```{r echo=TRUE}
+tm1 = gl(k1, 1, n*k1*k2, factor(f1)) 
+tm1
+```
+
+Aynı şekilde `gl` işlevi ile 3. adımda eleman-eleman yanıt verisinin 2. tedavi seviyesine karşılık gelen bir vektör oluşturalım.
+
+```{r echo=TRUE}
+tm2 = gl(k2, n*k1, n*k1*k2, factor(f2)) 
+tm2
+```
+
+`aov` işlevini, etkileşimli iki tedavi faktörü `tm1` ve `tm2` tarafından `r` yanıtı tanımlayan bir formüle uygulayalım.
+
+```{r echo=TRUE}
+av = aov(r ~ tm1 * tm2)
+```
+
+ANOVA tablosu:
+
+```{r echo=TRUE}
+summary(av)
+```
+
+Menü öğeleri için 0.0015 olan p değeri .05 anlamlılık düzeyinden daha düşük olduğundan, yeni menü öğelerinin ortalama satış hacminin hepsinin eşit olduğu şeklindeki boş hipotezini reddediyoruz. Ayrıca doğu-batı kıyıları karşılaştırması için 1.2e-05 p-değeri de .05 anlamlılık düzeyinden düşüktür. Kıyılar arasında genel satış hacminde farklılık olduğunu göstermektedir. Son olarak, 0,0113'lük son p değeri (\<0,05), menü öğesi ile kıyı konumu faktörleri arasında olası bir etkileşim olduğunu gösterir, yani farklı kıyı bölgelerinden müşterilerin farklı zevkleri vardır.
+
+# Parametrik Olmayan Yöntemler
+
+Kitle dağılımı veya örneklem boyutu hakkında herhangi bir varsayımda bulunmayan istatistiksel yöntem **parametrik olmayan** olarak adlandırılır.
+
+Bu, verilerin nicel olduğunu, kitlenin normal bir dağılıma sahip olduğunu ve örneklem büyüklüğünün yeterince büyük olduğunu varsayan temel istatistikteki çoğu parametrik yöntemle çelişir.
+
+Genel olarak, parametrik olmayan yöntemlerden elde edilen sonuçlar parametrik olanlar kadar güçlü değildir. Bununla birlikte, parametrik olmayan yöntemler daha az varsayım yaptığından, daha esnek, daha sağlam ve nicel olmayan verilere uygulanabilir.
+
+## İşaret Testi
+
+**İşaret testi**, bir binom dağılımının eşit başarı ve başarısızlık şansına sahip olup olmadığına karar vermek için kullanılır.
+
+Bir meşrubat şirketi yeni bir içecek icat etti ve mevcut favori içecek kadar popüler olup olmayacağını öğrenmek istiyor. Bu amaçla, araştırma departmanı tat testi için 18 katılımcı ayarlıyor. Her katılımcı kendi fikrini vermeden önce her iki içeceği rastgele sırayla dener.
+
+Örnek: Katılımcılardan 5'inin yeni içeceği daha çok sevdiği, geri kalanının eskisini tercih ettiği ortaya çıktı. 0,05 anlamlılık düzeyinde, iki içeceğin eşit derecede popüler olduğu fikrini reddedebilir miyiz?
+
+Çözüm: Boş hipotez, içeceklerin eşit derecede popüler olmasıdır. Burada binom.test fonksiyonunu uyguluyoruz. p-değeri 0.096525 olduğu ve .05 anlamlılık düzeyinden büyük olduğu için, sıfır hipotezini reddetmiyoruz.
+
+```{r echo=TRUE}
+binom.test(5, 18)
+```
+
+0,05 anlamlılık düzeyinde, iki içeceğin eşit derecede popüler olduğu fikrini reddetmiyoruz.
+
+## Wilcoxon İşaretli-Sıra Testi
+
+Aynı konunun tekrarlanan gözlemlerinden geliyorlarsa iki veri örneği **bağımlıdır**. **Wilcoxon İşaretli Sıra Testini** kullanarak, karşılık gelen veri kitle dağılımlarının normal dağılımı takip ettiklerini varsaymadan aynı olup olmadığına karar verebiliriz.
+
+Örnek: Verilerin normal dağılıma sahip olduğunu varsaymadan, `immer` veri setindeki 1931 ve 1932 arpa verimleri aynı veri dağılımlarına sahipse .05 anlamlılık düzeyinde test edin.
+
+Çözüm: Boş hipotez, iki örnek yılın arpa verimlerinin aynı kitle olmasıdır. Hipotezi test etmek için, bağımlı örnekleri karşılaştırmak üzere `wilcox.test` işlevini uygularız. Eşleştirilmiş test için, `"paired"` bağımsız değişkeni `TRUE` olarak ayarladık. p değeri 0,005318 çıktığında ve 0,05 anlamlılık düzeyinden düşük olduğundan, sıfır hipotezini reddediyoruz.
+
+```{r echo=TRUE}
+library(MASS)
+
+wilcox.test(immer$Y1, immer$Y2, paired=TRUE)
+```
+
+0,05 anlamlılık düzeyinde, `immer` veri setinden elde edilen 1931 ve 1932 arpa verimlerinin özdeş olmayan kitleler olduğu sonucuna vardık.
+
+## Mann-Whitney-Wilcoxon Testi
+
+İki veri örneği, farklı popülasyonlardan geliyorsa `bağımsızdır` ve örnekler birbirini etkilemez. **Mann-Whitney-Wilcoxon** Testini kullanarak, popülasyon dağılımlarının normal dağılımı takip ettiklerini varsaymadan aynı olup olmadığına karar verebiliriz.
+
+Örnek: Verilerin normal dağılıma sahip olduğunu varsaymadan, `mtcars` verisetindeki manuel ve otomatik şanzımanların gaz kilometre verilerinin aynı veri dağılımına sahip olup olmadığına .05 önem düzeyinde karar verin.
+
+Çözüm: Boş hipotez, manuel ve otomatik şanzımanların gaz kilometre verilerinin aynı kitle olmasıdır. Hipotezi test etmek için, bağımsız örnekleri karşılaştırmak üzere `wilcox.test` fonksiyonunu uygularız. P değeri 0,001817 çıktığında ve 0,05 anlamlılık düzeyinden düşük olduğundan, sıfır hipotezini reddediyoruz.
+
+```{r echo=TRUE}
+wilcox.test(mpg ~ am, data=mtcars)
+```
+
+.05 önem düzeyinde, `mtcars`'daki manuel ve otomatik şanzımanların gaz kilometre verilerinin özdeş olmayan popülasyonlar olduğu sonucuna vardık.
+
+## Kruskal-Wallis Testi
+
+İlişkili olmayan kitlelerden geliyorsa ve örnekler birbirini etkilemiyorsa, örneklem kümeleri **bağımsızdır**. **Kruskal-Wallis Testini** kullanarak, kitle dağılımlarının normal dağılımı takip ettiklerini varsaymadan aynı olup olmadığına karar verebiliriz.
+
+`airquality` adlı yerleşik veri setinde, New York, Mayıs-Eylül 1973'teki günlük hava kalitesi ölçümleri kaydedilmiştir. Ozon yoğunluğu, veri çerçevesi sütununda sunulmuştur.
+
+```{r echo=TRUE}
+head(airquality)
+```
+
+Örnek: Verilerin normal dağılıma sahip olduğunu varsaymadan, New York'taki aylık ozon yoğunluğu Mayıs'tan Eylül 1973'e kadar aynı veri dağılımlarına sahipse .05 anlamlılık düzeyinde test edin.
+
+Çözüm: Boş hipotez, aylık ozon yoğunluğunun aynı popülasyonlar olduğudur. Hipotezi test etmek için, bağımsız aylık verileri karşılaştırmak üzere kruskal.test fonksiyonunu uygularız. p değeri neredeyse sıfıra çıkıyor (6.901e-06). Dolayısıyla boş hipotezi reddediyoruz.
+
+```{r echo=TRUE}
+kruskal.test(Ozone ~ Month, data = airquality)
+```
+
+0,05 anlamlılık düzeyinde, Mayıs'tan Eylül 1973'e kadar New York'taki aylık ozon yoğunluğunun özdeş olmayan popülasyonlar olduğu sonucuna vardık.
