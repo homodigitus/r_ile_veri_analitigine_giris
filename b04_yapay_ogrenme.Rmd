@@ -1,0 +1,706 @@
+---
+title: "Yapay Öğrenme"
+author: "Murat Öztürkmen"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    code_folding: hide
+    highlight: kate
+    lightbox: no
+    number_sections: yes
+    self_contained: yes
+    thumbnails: no
+  html_document:
+    df_print: paged
+---
+
+```{r setup, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+# Giriş
+
+Son birkaç yıldır **yapay öğrenmeyi (machine learning)** bir moda sözcük olarak gördük, bunun nedeni uygulamalar tarafından yüksek miktarda veri üretimi, son birkaç yılda hesaplama gücünün artması ve daha iyi algoritmaların geliştirilmesi olabilir.
+
+Yapay öğrenme, sıradan görevlerin otomatikleştirilmesinden akıllı içgörüler sunmaya kadar her yerde kullanılır, her sektördeki endüstriler bundan yararlanmaya çalışır. Halihazırda onu kullanan bir cihaz kullanıyor olabilirsiniz. Örneğin, Fitbit gibi giyilebilir bir spor takipçisi veya Google Home gibi akıllı bir ev asistanı. Ancak kullanımda olan çok daha fazla makine öğrenimi örneği vardır.
+
+-   Tahmin - Yapay öğrenme, tahmin sistemlerinde de kullanılabilir. Kredi örneğini göz önünde bulundurarak, bir anomali olasılığını hesaplamak için sistemin mevcut verileri gruplar halinde sınıflandırması gerekecektir.
+
+-   Görüntü tanıma - Yapay öğrenme, bir görüntüdeki yüz algılama için de kullanılabilir. Birkaç kişiden oluşan bir veri tabanında her kişi için ayrı bir kategori vardır.
+
+-   Konuşma Tanıma - Sözlü kelimelerin metne çevrilmesidir. Sesli aramalarda ve daha fazlasında kullanılır. Sesli kullanıcı arayüzleri arasında sesli arama, çağrı yönlendirme ve cihaz kontrolü bulunur. Aynı zamanda basit bir veri girişi ve yapılandırılmış belgelerin hazırlanması için de kullanılabilir.
+
+-   Tıbbi teşhisler - Yapay öğrenme, kanserli dokuları tanımak için eğitilmiştir.
+
+-   Finans sektörü ve ticaret - şirketler, dolandırıcılık soruşturmalarında ve kredi kontrollerinde yapay öğrenme teknikleri kullanır.
+
+# Yapay Öğrenme Nedir?
+
+Arthur Samuel'e göre, **yapay öğrenme** algoritmaları, bilgisayarların açıkça programlanmadan verilerden öğrenmesini ve hatta kendilerini geliştirmesini sağlıyor.
+
+Yapay öğrenme (YÖ), yazılım uygulamalarının açık bir şekilde programlanmadan sonuçları tahmin etmede daha doğru hale gelmesini sağlayan bir algoritma kategorisidir. Makine öğreniminin temel dayanağı, girdi verilerini alabilen ve yeni veriler elde edildikçe çıktıları güncellerken bir çıktıyı tahmin etmek için istatistiksel analizi kullanabilen algoritmalar oluşturmaktır.
+
+# Yapay Öğrenme Kategorileri
+
+Yapay öğrenme algoritmaları 3 gruba ayrılabilir:
+
+-   **gözetimli öğrenme (supervised learning)**,
+
+-   **gözetimsiz öğrenme (unsupervised learning)**,
+
+-   **pekiştirmeli öğrenme (reinforcement learning).**
+
+# Yapay Öğrenme Uygulamaları
+
+## Sınıflandırma: Iris Veri seti
+
+İlgili kütüphanelerin çağırılması:
+
+```{r echo=TRUE}
+
+# tidymodels kütüphanesi
+library(tidymodels)
+```
+
+### Veri Ön-işleme
+
+Bu adım, veri dönüşümlerini kullanarak verileri modellemeye uygun hale getirmeye odaklanır. Tüm dönüşümler `dplyr` veya diğer `tidyverse` paketlerle gerçekleştirilebilir Model geliştirme daha ağır ve karmaşık olduğunda `tidymodels` paketlerini kullanmayı düşünün.
+
+### Veri Örnekleme
+
+`initial_split()` işlevi, veri kümesini eğitim ve test kümesine ayırmak için özel olarak oluşturulmuştur. Varsayılan olarak, eğitim için verilerin 3 / 4'ünü ve test için geri kalanını tutar. Bu, `prop` argümanını ayarlayarak değiştirilebilir. Bu işlev bir veri çerçevesi değil, bölünmüş bir `split` nesnesi oluşturur. Yazdırılan çıktı; test, eğitim ve toplam için satır sayısını gösterir.
+
+```{r echo=TRUE}
+
+# verinin bölünmesi
+iris_split <- initial_split(iris, prop = 0.6)
+
+# veri parçaları
+iris_split
+```
+
+Eğitim için ayrılmış gözlemlere erişmek için `training()` işlevini kullanabilriz. Benzer şekilde, test verilerine erişmek için `test()` kullanabiliriz.
+
+```{r echo=TRUE}
+
+# eğtim verisi
+iris_split %>% 
+  training() %>% 
+  glimpse()
+```
+
+Bu örnekleme işlevleri, `tidymodels` 'in bir parçası olan `rsample` paketinden gelir.
+
+### Veri Ön işleme Arayüzü
+
+`tidymodels` paketinde, `recipes` paketi, veri ön işlemede uzmanlaşmış bir arayüz sağlar. Paket içinde, veri dönüşümlerini başlatan veya yürüten işlevler *pişirme (cooking)* eylemlerinden sonra adlandırılır. Bu, arayüzü daha kullanıcı dostu hale getirir. Örneğin:
+
+-   `recipe()`: Uygulanacak yeni bir dönüşüm kümesi başlatır. Ana argümanı modelin formülüdür.
+
+-   `prep()`: Sağlanan verilerin (tipik olarak eğitim verileri) üstündeki dönüşümleri gerçekleştirir.
+
+Her veri dönüşümü bir adımdır. Fonksiyonlar, her biri bir `step_` önekine sahip olan belirli adım türüne karşılık gelir. Birçok `step_` işlevi vardır; bu örnekte, bunlardan üçünü kullanacağız:
+
+-   step\_corr(): Diğer değişkenlerle mutlak olarak çok yüksek korelasyona sahip değişkenlerin atılması.
+
+-   step\_center(): Sayısal veriyi normalize eder (sıfır ortalama).
+
+-   step\_scale(): Sayısal veriyi standardize eder (bir standart sapma).
+
+Bir başka güzel özellik, adımın belirli bir değişkene, değişken gruplarına veya tüm değişkenlere uygulanabilmesidir. `all_outocomes()` ve `all_predictors()` işlevleri, değişken gruplarını belirtmek için çok uygun bir yol sağlar. Örneğin, `step_corr()` 'un yalnızca tahmin değişkenlerini analiz etmesini istiyorsak, `step_corr(all_predictors())` kullanırız.
+
+Aşağıdaki örnekte, bir `recipe` nesnesi oluşturmak için `recipe()`, `prep()` ve `step` işlevlerini bir araya getireceğiz. `training()` işlevi, bu veri kümesini önceden oluşturulmuş bölünmüş örnek veri kümesinden çıkarmak için kullanılır.
+
+```{r echo=TRUE}
+
+# veri ön işleme tarifi
+iris_recipe <- training(iris_split) %>% 
+  recipe(Species ~ .) %>%
+  step_corr(all_predictors()) %>% 
+  step_center(all_predictors(), -all_outcomes()) %>% 
+  step_scale(all_predictors(), -all_outcomes()) %>% 
+  prep()
+```
+
+`iris_recipe` nesnesini çağırırsak, tarifle ilgili ayrıntıları yazdıracaktır. `Operations` bölümü verilere ne yapıldığını açıklar. Örnekteki işlem girişlerinden biri, korelasyon adımının Petal.Length değişkenini kaldırdığını açıklar.
+
+```{r echo=TRUE}
+
+# tarifin yazdırılması
+iris_recipe
+```
+
+### Veri Ön İşlemenin Gerçekleştirilmesi
+
+Test verileri de artık eğitim verilerini önceden işlemek için kullanılan aynı adımlar, ağırlıklar ve kategorizasyon kullanılarak dönüştürülebilir. Bunu yapmak için pişirme terimi olan başka bir işlev kullanılır: `bake()`. Uygun veri kümesini çıkarmak için `test()` işlevinin kullanıldığına dikkat edin.
+
+```{r echo=TRUE}
+
+# test verisinin hazırlanması
+iris_testing <- iris_recipe %>%
+  bake(testing(iris_split))
+
+# test verisi 
+glimpse(iris_testing)
+```
+
+Aynı işlemi eğitim verileri üzerinden gerçekleştirmek gereksizdir çünkü bu veriler zaten hazırlanmıştır. Hazırlanan eğitim verilerini bir değişkene yüklemek için `juice()` kullanıyoruz. Verileri `iris_recipe` nesnesinden çıkaracaktır.
+
+```{r echo=TRUE}
+
+# eğtim verisinin hazırlanması
+iris_training <- juice(iris_recipe)
+
+# eğitim verisi
+glimpse(iris_training)
+```
+
+### Model Eğitimi
+
+R'de, aynı model tipine uyan birden çok paket vardır. Her paketin benzersiz bir arayüz sağlaması yaygındır. Başka bir deyişle, aynı model özniteliği için bir argüman gibi şeyler, her paket için farklı şekilde tanımlanır.
+
+Modelleme paketini değiştirmek yerine, arayüzün yerini `tidymodels` alır. Daha da iyisi, `tidymodels`, bir modeli tanımlamak için tek bir işlev ve argüman kümesi sağlar. Daha sonra modeli istenen modelleme paketine göre uyarlar.
+
+Aşağıdaki örnekte, `rand_forest()` işlevi bir Rastgele Orman modelini başlatmak için kullanılmıştır. Ağaç sayısını tanımlamak için `trees` argümanı kullanılır. Random Forest'ın `ranger` versiyonunu kullanmak için `set_engine()` işlevi kullanılır. Son olarak, modeli çalıştırmak için `fit()` işlevi kullanılır. Beklenen argümanlar formül ve verilerdir. Modelin hazırlanmış eğitim verileri üzerinde çalıştığına dikkat edin.
+
+```{r echo=TRUE}
+
+# ranger modeli
+iris_ranger <- rand_forest(trees = 100, mode = "classification") %>%
+  set_engine("ranger") %>%
+  fit(Species ~ ., data = iris_training)
+```
+
+Kazanç şu ki, aynı modeli şimdi `randomForest`'a karşı çalıştırmak istiyorsak, `set_engine()` içindeki değeri basitçe `"randomForest"` olarak değiştiririz.
+
+```{r echo=TRUE}
+
+# random forest
+iris_rf <-  rand_forest(trees = 100, mode = "classification") %>%
+  set_engine("randomForest") %>%
+  fit(Species ~ ., data = iris_training)
+```
+
+Ayrıca, modelin birçok argümana sahip tek, büyük bir işlevde tanımlanmadığını da belirtmekte fayda var. Model tanımı, `fit()` ve `set_engine()` gibi daha küçük işlevlere ayrılmıştır. Bu, daha esnek - ve öğrenmesi daha kolay - bir arayüz sağlar.
+
+### Tahminler
+
+Bir vektör yerine, `parsnip` modeline karşı çalıştırılan `predict()` işlevi bir `tibble` döndürür. Varsayılan olarak tahmin değişkeni `.pred_class` olarak adlandırılır. Örnekte, `pişmiş(baked)` test verilerinin kullanıldığına dikkat edin.
+
+```{r echo=TRUE}
+
+# tahminler
+predict(iris_ranger, iris_testing)
+```
+
+Tahminleri `dplyr` paketinden `bind_cols()` işlevini kullanarak pişmiş test verilerine eklemek çok kolaydır.
+
+```{r echo=TRUE}
+
+# tahminlerin test verisine eklenmesi
+iris_ranger %>%
+  predict(iris_testing) %>%
+  bind_cols(iris_testing) %>%
+  glimpse()
+```
+
+### Modelin Doğrulanması(Validation)
+
+Modelin performansını ölçmek için `metrics()` işlevini kullanabiliriz. Belirli bir model türü için uygun ölçümleri otomatik olarak seçecektir. İşlev, gerçek sonuçları (`truth`) ve modelin öngördüğü (`prediction`) içeren bir `tibble` bekler.
+
+```{r echo=TRUE}
+
+# ranger modeli doğrulaması
+iris_ranger %>%
+  predict(iris_testing) %>%
+  bind_cols(iris_testing) %>%
+  metrics(truth = Species, estimate = .pred_class)
+```
+
+Rastgele Orman modeli için doğrulama:
+
+```{r echo=TRUE}
+
+# rf için model doğrulama
+iris_rf %>%
+  predict(iris_testing) %>%
+  bind_cols(iris_testing) %>%
+  metrics(truth = Species, estimate = .pred_class)
+```
+
+### Her Sınıfın Ölçümleri
+
+`type` argümanını `prob` olarak ayarlayarak her olası tahmin edilen değer için olasılık elde etmek kolaydır. Bu, olası tahmin edilen değerler olduğu kadar çok değişken içeren bir `tibble` döndürecektir. Adları, önek olarak `.pred_` ile orijinal değer adı olacaktır.
+
+```{r echo=TRUE}
+
+# sınıfların olasılıkları
+iris_ranger %>%
+  predict(iris_testing, type = "prob") %>%
+  glimpse()
+```
+
+Hazırlanmış veriye sınıf olasılıkları da eklenebilir:
+
+```{r echo=TRUE}
+
+# veriye olasılıkların eklenmesi
+iris_probs <- iris_ranger %>%
+  predict(iris_testing, type = "prob") %>%
+  bind_cols(iris_testing)
+
+glimpse(iris_probs)
+```
+
+Artık her şey tek parçada olduğuna göre, `gain_curve` hesaplamak kolaydır. Bu durumda `gain_curve()` kullanıyoruz.
+
+```{r echo=TRUE}
+
+# gain curve
+iris_probs%>%
+  gain_curve(Species, .pred_setosa:.pred_virginica) %>%
+  glimpse()
+```
+
+Eğri yöntemleri, kolayca bir `ggplot2` görselleştirmesi oluşturan bir `autoplot()` işlevi içerir.
+
+```{r echo=TRUE}
+
+# gain curve çizimi
+iris_probs%>%
+  gain_curve(Species, .pred_setosa:.pred_virginica) %>%
+  autoplot()
+```
+
+Bu bir `roc_curve()` örneğidir. Yine, arayüzün tutarlılığı nedeniyle, yalnızca işlev adının değiştirilmesi gerekir; argüman değerleri bile aynı kalır.
+
+```{r echo=TRUE}
+
+# roc curve
+iris_probs%>%
+  roc_curve(Species, .pred_setosa:.pred_virginica) %>%
+  autoplot()
+```
+
+Birleştirilmiş tek tahmini değeri ve her olası değerin olasılığını ölçmek için, iki tahmin modunu birleştirin (`prob` türü olan ve olmayan). Bu örnekte, `dplyr` paketinden `select()` kullanılması, elde edilen `tibble`'ın okunmasını kolaylaştırır.
+
+```{r echo=TRUE}
+
+# tahminler
+predict(iris_ranger, iris_testing, type = "prob") %>%
+  bind_cols(predict(iris_ranger, iris_testing)) %>%
+  bind_cols(select(iris_testing, Species)) %>%
+  glimpse()
+```
+
+Elde edilen tabloyu `metrics()` aktaralım. Bu durumda, tahmin olarak `.pred_class` belirtiriz.
+
+```{r echo=TRUE}
+
+# ölçümler
+predict(iris_ranger, iris_testing, type = "prob") %>%
+  bind_cols(predict(iris_ranger, iris_testing)) %>%
+  bind_cols(select(iris_testing, Species)) %>%
+  metrics(Species, .pred_setosa:.pred_virginica, estimate = .pred_class)
+```
+
+## Regresyon: Ames Konut Verisi
+
+### Verinin İncelenmesi
+
+81 değişken ve 2930 gözlem içeren Ames Konut veri setini kullanacağız ve bağımlı değişkenimiz `Sale_Price`. Açıkçası, gerçek bir analizde bu veri setini keşfetmek için çok daha fazla zaman harcarız, ancak yalnızca `tidymodels` iş akışını göstermek amacıyla, yalnızca çeşitli ön işlemler gerçekleştireceğiz, veriyi inceleyeceğiz, Lasso model kuracağız ve sonra da ayarlanmış bir elastic net modeli kuracağız.
+
+```{r echo=TRUE}
+
+library(tidyverse)
+library(AmesHousing)
+
+ames <- make_ames()
+
+ames %>% 
+  head() %>% 
+  knitr::kable()
+```
+
+Burada tonlarca (muhtemelen) güçlü bir şekilde ilişkili değişken bulunmaktadır. Gerçek dünyada, hangi değişkenlerin kesinlikle gerekli olduğunu düşünmek için muhtemelen biraz zaman harcardık.
+
+### Katmanlı (Stratified) Eğitim/Test Verisi
+
+Verileri Sale\_Price hedef değişkenine göre eğitim ve test verisi olarak bölelim:
+
+```{r echo=TRUE}
+
+set.seed(1)
+
+# satış fiyatını dönüştürme
+SP <- ames$Sale_Price
+ames$Sale_Price <- log(ames$Sale_Price)
+
+# parçalar
+ames_split <- initial_split(ames, strata = "Sale_Price")
+
+# parçaların yazdırılması
+ames_split
+```
+
+Eğitim ve test verileri:
+
+```{r echo=TRUE}
+
+# eğitim ver test verileri
+ames_train <- training(ames_split)
+ames_test <- testing(ames_split)
+
+# eğitim verisi
+ames_train %>% 
+  head() %>% 
+  knitr::kable()
+```
+
+### Veri Ön işleme
+
+Şimdi verilerimizi, yine `tidymodels` ekosisteminin bir parçası olan `recipes` paketini kullanarak ön işleyelim. Bunu yapmak için, önce formülümüzü ve verilerimizi belirteceğiz, ardından istediğimiz ön işleme adımlarını yineleyeceğiz. `recipes` ile yapılabilecek çok çeşitli şeyleri göstermek için, önce bağımlı değişkenimizi `Sale_Price` log dönüşümünü yapalım, ardından `"_Qual"` veya `"Condition"` içeren değişkenleri kaldıralım (bunlar, yapılan değerleme uzmanının öznel derecelendirmeleridir) Satışta veya satış sonrasında, satıştan önce `Sale_Price`'i tahmin etmek istiyoruz!), faktör değişkenlerimizden kukla değişkenler oluşturmak, tahmin edicilerimizi ortalamak ve ölçeklendirmek, ardından yeterince "SF" veya "Area" içeren 13 farklı değişken üzerinde `PCA` çalıştırıyoruz Bu değişkenlerdeki varyasyonun % 75'ini yakalamak için bileşenler, ardından sıfıra yakın varyans öngörücüleri kaldıralım.
+
+```{r echo=TRUE}
+
+# veri dönüşüm tarifi
+ames_rec <- recipe(
+  Sale_Price ~.,
+  data = ames_train
+) %>% 
+  #step_log(Sale_Price, base = 10) %>% 
+  step_rm(matches("Qual"), matches("Cond")) %>% 
+  step_dummy(all_nominal()) %>% 
+  step_center(all_predictors()) %>% 
+  step_scale(all_predictors()) %>% 
+  step_pca(contains("SF"), contains("Area"), threshold = .75) %>% 
+  step_nzv(all_predictors())
+
+# tarif
+ames_rec
+```
+
+Bir sonraki adım da bu tarifi prep() ile hazırlamak.
+
+```{r echo=TRUE}
+
+# tarifin hazırlanması
+ames_rec_trained <- prep(ames_rec, training = ames_train, verbose = TRUE)
+```
+
+Hazırlanmış veri:
+
+```{r echo=TRUE}
+ames_rec_trained
+```
+
+Şimdi, önceden işlenmiş eğitim setimizi veren, hazırlanan tarifleri `"juice"` işlevine sokabiliriz. PCA çıkarımımıza bir göz atalım.
+
+```{r echo=TRUE}
+
+# işlenmiş veri
+ames_rec_trained %>% 
+  juice() %>% 
+  select(starts_with("PC"))
+```
+
+Fena değil, 13 değişkeni 7'ye indirdik. Bu muhtemelen PCA'nın en iyi kullanım durumu değildi, ancak `recipes` 'de basitleştirilen bazı gelişmiş ön işlemlerin iyi bir örneğini sağlıyor.
+
+### Modelleme
+
+Şimdi modelimizi belirleyelim. `parsnip` paketini kullanarak 0,001 ceza ile bir Lasso modelini tercih edeceğiz.
+
+Bunu yapmak için, önce modelimizi `linear_reg()` kullanarak doğrusal bir regresyon olarak belirleyeceğiz, karışım oranını(mixture proportion) tam L1 normalleştirme (Lasso) için 1'e ve cezayı 0.001'e ayarlayacağız. Ardından, alternatif seçenekler olarak "lm", "stan", "spark" veya "keras" yerine model motorunu "glmnet" olarak ayarlayacağız. `parsnip`'in güzelliği, bir modelin her uygulaması için düzinelerce farklı arayüzü hatırlamanıza gerek kalmaması için model spesifikasyonları için arayüzü birleştirmesidir.
+
+```{r echo=TRUE}
+
+# lasso modeli
+ames_lasso <- linear_reg(penalty = 0.001, mixture = 1) %>% 
+  set_engine("glmnet")
+```
+
+Artık bir tarifimiz ve bir de modelimiz var, ön işleme adımlarımızı ve modelimizi paketleyen `"workflow"` oluşturabiliriz. İş akışlarını kullanarak, modelimize uymaya başladığımızda daha önce uyguladığımız `prep()` ve `juice()` adımlarından geçmemize gerek yok.
+
+```{r echo=TRUE}
+
+# iş akışı oluşturma
+ames_lasso_wfl <- workflow() %>% 
+  add_model(ames_lasso) %>% 
+  add_recipe(ames_rec)
+
+# iş akışı
+ames_lasso_wfl
+```
+
+Tasarladığımız iş akışımızla modelimize uydurmak, eğitim verilerimizi ve iş akışımızı `fit()` işlevine geçirmek kadar basittir.
+
+```{r echo=TRUE}
+
+# model uydurma
+ames_lasso_fit <- fit(ames_lasso_wfl, ames_train)
+```
+
+Tahminleri almak, uygun modeli ve `predict()` işlevine tahmin etmek istediğimiz verileri dağıtmak kadar basittir.
+
+```{r echo=TRUE}
+
+# tahmin
+predict(ames_lasso_fit, ames_train)
+```
+
+### Model Geliştirme
+
+Modelimiz eğitim setimizde nasıl performans gösteriyor? `yardstick` paketindeki metrikleri kullanarak öğrenelim. Üç ölçüm kullanacağız: Kök Ortalama Karesel Hata (RMSE), R kare ve uyum korelasyon katsayısı (concordance correlation coefficient-ccc).
+
+Önce üç metriğimizi ayarlayacağız, ardından tahminler oluşturacağız ve bu tahminleri eğitim setindeki gerçek değerlerle karşılaştıracağız.
+
+```{r echo=TRUE}
+
+# performans metrikleri
+perf_metrics <- metric_set(rmse, rsq, ccc)
+
+# model tahminleri
+perf_lasso <- ames_lasso_fit %>% 
+  predict(ames_train) %>% 
+  bind_cols(juice(ames_rec_trained)) %>% 
+  perf_metrics(truth = Sale_Price, estimate = .pred)
+
+# model performansı
+perf_lasso %>% 
+  arrange(.metric)
+```
+
+Basit! Ama elbette, bunların hepsi örneklem içinde. Belki de çapraz doğrulama kullanarak modelimizden ne tür örneklem dışı performans bekleyebileceğimizi bilmek istiyoruz. `rsample` bunu da kolaylaştırır, öyleyse, `vfold_cv()` kullanarak eğitim seti modellerimizi değerlendirmek için 10 katlı çapraz doğrulama setleri oluşturalım, bu varsayılan olarak 10 kat oluşturma anlamına gelir.
+
+```{r echo=TRUE}
+
+# çapraz doğrulama
+cv_splits <- vfold_cv(ames_train)
+cv_splits
+```
+
+Şimdi iş akışımızı(workflow) alıp, `tune` paketinden (aynı zamanda `tidymodels` ekosisteminin bir parçasıdır) f`it_resamples()` işlevini kullanarak bu 10 bölünmeye 10 model sığdırmak için kullanacağız ve ona daha önce belirlediğimiz performans ölçümlerini hesaplamasını söyleyeceğiz.
+
+```{r echo=TRUE}
+
+# 10 örnekleme 10 model uydurma
+cv_eval <- fit_resamples(ames_lasso_wfl, 
+                         resamples = cv_splits, 
+                         metrics = perf_metrics)
+cv_eval
+```
+
+Şimdi, az önce kontrol ettiğimiz örnek içi performansı çapraz doğrulanmış performansımızla karşılaştıralım; bu, yukarıdaki `fit_samples()` nesnesini `collect_metrics()` işlevine geçirmek kadar kolay!
+
+```{r echo=TRUE}
+
+# ölçümlerin alınması
+collect_metrics(cv_eval)
+```
+
+Ölçümlerin sıralanması:
+
+```{r echo=TRUE}
+
+# ölçümlerin sıralanması
+perf_lasso %>% 
+  arrange(.metric)
+```
+
+Hiç de fena değil! Çapraz doğrulanmış performansımız, örnek içi performansımıza oldukça yakın, burada gereğinden fazla uygun görünmüyoruz.
+
+Ama bence daha iyisini yapabiliriz. Bu yeniden örneklere uyması için `tune` paketini zaten kullandık, ancak paket adından da anlaşılacağı gibi, gerçek gücü modelimizdeki hiperparametreleri kolayca ayarlamamıza izin veriyor.
+
+### Model Ayarlama
+
+Normalleştirme cezamızı 0.001 olarak belirlediğimizi ve L1 düzenlileştirmeyi kullanmayı seçtiğimizi hatırlayın. Bu kararların ikisi de görece keyfiydi. Bu parametrelerin ne olması gerektiğine karar vermek için çapraz doğrulama performansını kullanarak diğer ceza değerlerini ve düzenlilik karışımlarını keşfederek bir elasticnet modeli oluşturmak için `tune` paketini kullanalım.
+
+Ceza ve karışım için belirli değerler almayan ve bunun yerine bunları ayarlanacak değişkenler olarak bırakacak ve bu yeni iş akışıyla `ames_lasso_wfl`'mizi değiştirecek yeni bir model, `ames_mixture` tanımlayarak başlayacağız.
+
+```{r echo=TRUE}
+
+# yeni model
+ames_mixture <- linear_reg(penalty = tune(), 
+                           mixture = tune()) %>% 
+  set_engine("glmnet")
+
+# akışın güncellenmesi
+ames_mixture_wfl <- update_model(ames_lasso_wfl, ames_mixture)
+```
+
+Ardından, aranacak bir parametre alanı tanımlayacağız. `tune`, ya ızgara araması (aday değerlerin önceden tanımlandığı yerlerde) ya da önceki modelin sonuçlarının denenecek sonraki parametre değerlerini seçmek için kullanıldığı yinelemeli arama (örn: Bayes optimizasyonu) gerçekleştirmenize olanak tanır.
+
+Her birinin artıları / eksileri vardır. Izgara aramasının büyük bir artısı, aramanızı hızlandırmak için paralel işlemeden yararlanmanıza izin verirken yinelemeli arama, yapı gereği sıralı olur. Yinelemeli aramanın büyük bir artısı, yüksek boyutlu bir parametre uzayının birçok değerini kaplarken verimli olabilecek parametre alanı alanlarını hızlı bir şekilde eleyebilmesidir (burada bir ızgara, tüm parametre alanını rahatça kaplamak için birçok model gerektirebilir, burada çoğu gereksiz olabilir).
+
+Burada ızgara aramayı kullanacağız. `tune`, birçok yaygın hiperparametrenin parametre boşluklarını aramak için yararlı varsayılanlar sağlar, örneğin, log-10 alanında "ceza" parametresi için ızgaralar oluşturmak. Parametreleri basitçe belirleyebilir, bunları `grid_regular()` 'a geçirebilir ve 5 ceza seviyesi ve 5 karışım seviyesi istediğimizi belirtebiliriz.
+
+```{r echo=TRUE}
+
+# parametreler
+mixture_param <- parameters(penalty(), mixture())
+
+# ızgara yapısı
+regular_grid <- grid_regular(mixture_param, levels = c(5, 5))
+
+# ızgaranın çizimi
+regular_grid %>% 
+  ggplot(aes(x = mixture, y = penalty)) +
+  geom_point() +
+  scale_y_log10()
+```
+
+`tune` ayrıca normal olmayan ızgaralar oluşturmanın yollarını da sağlar.
+
+-   `Grid_random()` kullanılarak oluşturulan rastgele ızgaralar, parametre uzayını düzgün bir şekilde örnekleyecektir.
+
+-   `Grid_max_entropy()` kullanılarak oluşturulan boşluk doldurma tasarımları (space-filling designs-SFD), parametre alanını daha verimli bir şekilde kaplamak için aday değerleri birbirinden uzak tutmaya çalışacaktır.
+
+Aşağıda bir SFD ızgarasının nasıl oluşturulacağı gösterilmektedir ve 25 aday değerin grafiğini çizmektedir.
+
+```{r echo=TRUE}
+
+# sfd
+sfd_grid <- grid_max_entropy(mixture_param, size = 25)
+
+sfd_grid
+```
+
+SFD ızgarası:
+
+```{r echo=TRUE}
+
+# sfd ızgara çizimi
+sfd_grid %>% 
+  ggplot(aes(x = mixture, y = penalty)) +
+  geom_point() +
+  scale_y_log10()
+```
+
+Basitlik için, oluşturduğumuz normal ızgaraya bağlı kalacağız. Ayarlamaya başlayalım.
+
+İlk olarak, paralelleştirmemizi kuracağız.
+
+```{r echo=TRUE}
+
+# paralelleştirme
+library(doParallel)
+
+all_cores <- parallel::detectCores(logical = FALSE)
+
+cl <- makePSOCKcluster(all_cores)
+registerDoParallel(cl)
+
+clusterEvalQ(cl, {library(tidymodels)})
+```
+
+Şimdi tarifimizi, modelimizi, yeniden örneklerimizi ve metriklerimizi alacak ayar nesnemizi oluşturup 25 modelimize 10 yeniden örnek üzerinde uyacak ve performans metriklerimizi hesaplayacağız, ardından paralelleştirmemizi durduracağız.
+
+```{r echo=TRUE}
+
+# model ayarlama
+ames_tune <- tune_grid(
+  ames_rec,
+  model = ames_mixture,
+  resamples = cv_splits,
+  grid = regular_grid,
+  metrics = perf_metrics
+)
+
+stopCluster(cl)
+
+# Naive Lasso performance
+collect_metrics(cv_eval)
+```
+
+Farklı ölçütlere göre en iyi ayarlanmış model:
+
+```{r echo=TRUE}
+
+# en iyi model
+show_best(ames_tune, "ccc")
+```
+
+```{r echo=TRUE}
+show_best(ames_tune, "rmse", maximize = FALSE)
+```
+
+```{r echo=TRUE}
+show_best(ames_tune, "rsq")
+```
+
+Sonuçlarımız, orijinal model parametreleri seçimlerimizin kesinlikle iyileştirme için yer olduğunu göstermektedir. Çok daha küçük bir ceza ve saf L2 düzenlenmesi ile gitmek bu verilerde daha iyi sonuç veriyor gibi görünüyor. İyileştirmeler nispeten mütevazıdır (RMSE: 0,0686 -\> 0,0682, R kare: 0,847 -\> 0,849), ancak ayarlama bu kadar kolayken, neden masada para bırakılsın?
+
+Aşağıdaki grafik, orijinal modelimizin nerede olacağını belirtmek için noktalı bir çizgiyle birlikte her bir grid adayının performansını güzel bir şekilde görselleştiriyor.
+
+```{r echo=TRUE}
+
+collect_metrics(ames_tune) %>% 
+  filter(.metric == "rmse") %>%
+  mutate(mixture = format(mixture)) %>% 
+  ggplot(aes(x = penalty, y = mean, col = mixture)) +
+  geom_line() +
+  geom_point() +
+  scale_x_log10() +
+  geom_vline(xintercept = 0.001, color = "purple", lty = "dotted")
+```
+
+En iyi modelin seçimi:
+
+```{r echo=TRUE}
+best_mixture <- select_best(ames_tune, metric = "rmse", maximize = FALSE)
+best_mixture
+```
+
+Modelin finalize edilmesi:
+
+```{r echo=TRUE}
+ames_mixture_final <- ames_mixture_wfl %>% 
+  finalize_workflow(best_mixture) %>% 
+  fit(data = ames_train)
+```
+
+Ve bitirdik! Artık uyumlu, ayarlanmış, düzenlenmiş bir karıştırılmış modelimiz var (karışım% 100 L2 regülasyonu olsa da, ancak oraya ayarlama yoluyla ulaştık!)
+
+Sonunda eğlenceli kısma geldik. Satış fiyatını tahmin etmede hangi değişkenlerin en önemli olduğu ortaya çıktı?
+
+```{r echo=TRUE}
+
+tidy_coefs <- ames_mixture_final$fit$fit$fit %>% 
+  broom::tidy() %>% 
+  filter(term != "(Intercept)") %>% 
+  select(-step, -dev.ratio)
+
+delta <- abs(tidy_coefs$lambda - best_mixture$penalty)
+lambda_opt <- tidy_coefs$lambda[which.min(delta)]
+
+label_coefs <- tidy_coefs %>% 
+  mutate(abs_estimate = abs(estimate)) %>% 
+  filter(abs_estimate >= 0.01) %>% 
+  distinct(term) %>% 
+  inner_join(tidy_coefs, by = "term") %>% 
+  filter(lambda == lambda_opt)
+
+label_coefs
+```
+
+```{r echo=TRUE}
+# değişken önemi çizimi
+tidy_coefs %>% 
+  ggplot(aes(x = lambda, y = estimate, group = term, col = term, label = term)) +
+  geom_vline(xintercept = lambda_opt, lty = 3) +
+  geom_line(alpha = .4) +
+  theme(legend.position = "none") +
+  scale_x_log10() +
+  ggrepel::geom_text_repel(data = label_coefs)
+```

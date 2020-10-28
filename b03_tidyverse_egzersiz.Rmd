@@ -1,0 +1,309 @@
+---
+title: "R ile Temel İstatistik-3"
+author: "Murat Öztürkmen"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    code_folding: hide
+    highlight: kate
+    lightbox: no
+    number_sections: yes
+    self_contained: yes
+    thumbnails: no
+  html_document:
+    df_print: paged
+---
+
+```{r setup, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+# Kütüphaneler ve Veri setinin Okunması
+
+`tiyverse` kütüphanesini çağıralım ve veri setini okuyalım:
+
+```{r echo=TRUE}
+
+# tidyverse kütüphanesi
+library(tidyverse)
+
+# veri seti
+titanic <- read.csv("data/titanic/titanic.csv")
+```
+
+Veri kümesinin yapısını inceleyelim (değişken adları ve değişken türü). Bu adım, değişkenlerin çizim için uygunluğunu belirlemek için gereklidir.
+
+```{r echo=TRUE}
+# verinin yapısı
+summary(titanic)
+str(titanic)
+names(titanic)
+
+# NA değerlerin olduğu satırların atılması
+titanic.df <- titanic %>% 
+  filter(Survived != "")
+head(titanic.df, n = 10)
+```
+
+Verisetindeki alanlar:
+
+-   **Pclass:** *Ticket Class (1 = 1st, 2= 2nd; 3= 3rd)*
+
+-   **Survived:** Survival *( 0 = No;1 = Yes)*
+
+-   **Name:** *Passenger name*
+
+-   **Sex:** *Gender (Male or Female)*
+
+-   **Age:** *Passenger* *Age*
+
+-   **SibSp:** *Nos of sibling and/or spouses aboard*
+
+-   **Parch:** *Nos of parent(s) and/or children aboard*
+
+-   **Ticket:** *Ticket number*
+
+-   **Fare:** *Fare price (British Pound)*
+
+-   **Cabin:** *Cabin*
+
+-   **Embarked**: *Port of embarkation (C = Cherbourg: Q = Queenstown: S= Southampton)*
+
+-   **Boat**: *Lifeboat*
+
+-   **Body**: *Body Identification Number*
+
+-   **home.dest**:*Address of Passengers Home or Destination*
+
+# Görselleştirme
+
+Birinci soru: Titanik'teki Hayatta Kalma oranı neydi?
+
+```{r echo=TRUE}
+ggplot(data = titanic.df) +
+  aes(x = Age, fill = Survived) +
+  geom_histogram(bin = 30, colour = "#1380A1") +
+  #scale_fill_brewer(palette = "Accent") +
+  labs(title = "Survival rate on the Titanic",
+       y = "Survived",
+       subtitle = "Distribution By Age, Gender and class of ticket",
+      caption = "Author: murat.ozturkmen") +
+  #theme_tomski() + # using a custom theme for my visualizations
+  theme_minimal()+ #Use the inbuilt ggplot2 them for your practice
+  facet_grid(as.factor(Sex)~as.factor(Pclass), scales = "free")
+```
+
+```{r echo=TRUE}
+# Proportion of 1st, 2nd and  3rd class women and men who survived
+mf.survived <- titanic.df %>%
+  filter(Survived == 1)%>%
+  group_by(Pclass,Sex)%>%
+  summarise(Counts = n()
+  )
+
+mf.died <- titanic.df %>%
+  filter(Survived != 1)%>%
+  group_by(Pclass,Sex)%>%
+  summarise(Counts = n()
+  )
+mf.perc.survived <- mf.survived/(mf.survived + mf.died) * 100
+select (mf.perc.survived, Counts)
+```
+
+-   Bu grafik, üç değişkeni de (yaş, cinsiyet, bilet sınıfı) dikkate alarak hayatta kalma modellerinin oranını belirlemeye yardımcı olur.
+
+-   Sınıf sırasına göre (\* 1., 2. ve 3.), hayatta kalan kadınların yüzdesi% 97,% 89 ve% 49 idi.
+
+-   Sınıf sırasına göre (\* 1., 2. ve 3.), hayatta kalan erkeklerin yüzdesi% 34,% 15 (\~ 14.6) ve% 15 (\~ 15.2) idi.
+
+-   1\. ve 2. sınıfta, 1. sınıftan bir kız çocuğu dışında tüm Çocuklar hayatta kaldı. 3. sınıfta daha çok çocuk ölümü yaşandı.
+
+İkinci sorumuz, Titanic'te kurtarıcılar tarafından kurtarılan Kadın ve Çocuk ilk yaklaşımını doğrulamak için verileri nasıl kullanabilirim?
+
+```{r echo=TRUE}
+titanic.df %>%
+  filter(Fare <= 300)%>%
+  ggplot(mapping = aes(x = Age, y = Fare)) +
+  geom_point(aes(colour = as.factor(Survived), size = Fare, alpha = 0.7)) +
+  geom_smooth(se = FALSE)+
+  facet_grid(Sex~Pclass, scales = "free") +
+  labs(title = "Priority and pattern of rescue on the Titanic",
+       x = "Age (yrs)",
+       y = "Fare(£)",
+       subtitle = "Children and women in order of ticket class were\nconsidered first in the rescue plan with priority been\nwomen, children and older adults >= 60yrs", 
+        
+       caption = "Author: etoma.egot") +
+  theme(
+    plot.subtitle = element_text(colour = "#17c5c9",
+                                     size=14))+
+           theme_minimal()  #using a custom theme
+```
+
+-   Yukarıdaki şekildeki dağıtım sonuçlarına göre (ücretler, bilet sınıfıyla orantılıdır). Titanic'teki Çocukların (\<= 12) ayrı biniş ücretleri aldığı gerçeğinin yanı sıra. Çocuk olmayan yaş grupları için ortalama ücretlerle karşılaştırıldığında, çocuklar ve gençler için ücretler alışılmadık derecede yüksek görünüyordu. Bunun neden böyle olduğunu biliyorsan bana haber ver.
+
+-   Bununla birlikte, kabarcık grafiği kurtarma operasyonlarının modeline ilişkin bazı başka ipuçları vermektedir. Açıkça görülüyor ki, kurtarma planlarında bilet sınıfı sırasına göre Kadın ve Çocuk yaklaşımı, tüm sınıflarda öncelikli olarak kadın, çocuk ve yaşlı yetişkinler olmak üzere kurtarıcılar tarafından benimsendi.
+
+-   Görünüşe göre kurtarıcılar tarafından erkek yolculara çok az veya hiç öncelik verilmedi
+
+Üçüncü soruya geçersek, Titanik'teki yaş dağılımı nasıldı (hem hayatta kalanlar hem de ölümler)?
+
+```{r echo=TRUE}
+titanic.df %>%
+    ggplot(mapping =  aes(x = as.factor(Pclass), y = Age)) +
+  geom_point(colour = "#1380A1", size = 1) +
+  geom_jitter(aes(colour = as.factor(Survived)))+ #This generates multiple colours
+  geom_boxplot(alpha = 0.7, outlier.colour = NA)+
+  labs(title = "Age Distribution by Class on the Titanic",
+       x = "Ticket Class",
+       y = "Age(Yrs)",
+       subtitle = "The males on the titanic were older than the females by an average of 3yrs across all ticket classes ",
+       caption = "Author: etoma.egot") +
+  theme_minimal() +   #using my own custom theme
+  theme(plot.subtitle = element_text(
+                                     size=18))+
+  
+  facet_wrap(.~Sex)
+```
+
+```{r echo=TRUE}
+#Calculating Mean and median age by Class and Gender for adults
+titanic.df %>%
+    group_by(Pclass, Sex)%>%
+  summarise(
+    n = n(), #count of passengers
+    Average.age = mean(Age, na.rm = TRUE),
+    Median.age  = median(Age, na.rm = TRUE)
+  )
+```
+
+Negatif Eğiklik - kutu grafiği, medyanı üst çeyreğe daha yakın gösterecektir
+
+Pozitif Eğiklik - kutu grafiği, medyanı alt çeyreğe daha yakın gösterecektir
+
+Kadınlarda:
+
+Sınıf sırasına göre (\* 1., 2., 3.) kadınların yaklaşık% 75'i en az 22, 20 ve 17 yaşındaydı. Ortanca yaş 36 yıl (normal dağılmış), 28 yıl (negatif çarpık) ve 22 yıl (pozitif çarpık) idi
+
+Erkeklerde:
+
+Sınıf sırasına göre erkeklerin yaklaşık% 75'i (\* 1., 2., 3.) en az 30, 24 ve 20 yaşındaydı.Ortanca yaş 42 yıl (negatif çarpık), 30 yıl (pozitif çarpık) ve 25 yıldı (pozitif çarpitilmis)
+
+Sonuç: Genel olarak, titanikteki erkekler tüm bilet sınıflarında kadınlardan ortalama 3 yaş daha yaşlıydı.
+
+Ardından, 4. soru için Titanic'te bilet sınıfına göre hayatta kalan yaş dağılımı neydi?
+
+```{r echo=TRUE}
+titanic.df %>%
+  filter(Survived ==1)%>%
+  ggplot(mapping =  aes(x = as.factor(Pclass), y = Age)) +
+  geom_point(size = 1) +
+  geom_jitter(colour = "#1380A1")+ 
+  geom_boxplot(alpha = 0.7, outlier.colour = NA)+
+  labs(title = "Survivors Age Distribution by Class on the Titanic",
+       x = "Ticket Class",
+       y = "Age(Yrs)",
+       subtitle = "The median age of male and female survivors in 1st class was the same(36 yrs)\nThe females in 2nd class were 1.5 times older than the males\nThe males in 3rd class were older than the females by 2yrs",
+       caption = "Author: etoma.egot") +
+  theme_minimal() +   #using my own custom theme
+  theme(plot.subtitle = element_text(colour = "#1380A1",
+                                     size=18))+
+  facet_wrap(.~Sex)
+```
+
+```{r echo=TRUE}
+#Calculating Mean and median age by Class and Gender for adults
+titanic.df %>%
+  filter(Survived ==1)%>%
+  group_by(Pclass, Sex)%>%
+  summarise(
+    n = n(), #count of passengers
+    Average.age = mean(Age, na.rm = TRUE),
+    Median.age  = median(Age, na.rm = TRUE)
+  )
+```
+
+KADIN
+
+\- Ortanca yaş 36 yıl (normal dağılmış), 28 yıl (negatif çarpık) ve 22 yıl (pozitif çarpık)
+
+ERKEK
+
+\- Ortanca yaş 36 yıl (pozitif olarak çarpık), 19 yıl (negatif çarpık) ve 25 yıl (negatif çarpık)
+
+Özet:
+
+\- 1. sınıftaki erkek ve kadın hayatta kalanların medyan yaşı aynıydı (36 yıl)
+
+\- 2. sınıftaki kızlar erkeklerden 1,5 kat büyüktü
+
+\- 3. sınıftaki erkekler kadınlardan 2 yaş büyüktü
+
+Son olarak, son soru için, Titanik'in bir asır önce en pahalı gemi olduğunu takiben, ücret değeri tüm bilet sınıflarında nasıl karşılaştırılır?
+
+```{r echo=TRUE}
+#Prepare Data, remove outliers in fare
+titanic.df %>%
+  filter(Fare < 300)%>%
+      ggplot(mapping =  aes(x = as.factor(Pclass), y = Fare)) +
+  #geom_point(colour = "#1380A1", size = 1) +
+  #geom_jitter(aes(colour = survived))+
+  geom_boxplot(colour = "#1380A1", outlier.colour = NA)+
+  labs(title = "Fare Value by Class",
+       x = "Ticket Class",
+       y = "Ticket Fare (£)",
+       subtitle = "1st class ticket was worth 3 times a 2nd class ticket\nand 2nd class ticket was worth almost twice that of 3rd class",
+       caption = "Author: etoma.egot") +
+  theme_minimal()+ #using my own custom theme 
+  theme(plot.subtitle = element_text(colour = "#1380A1",size=18))+
+  
+  coord_cartesian(ylim = c(0,125))+
+  coord_flip()
+```
+
+Kutu grafiği, bilet ücretinin Bilet sınıfı ile orantılı olduğunu doğrular.
+
+Dağılım sağa doğru çarpıktır. 1., 2. ve 3. sınıflar için medyan ücret 59.4 £, 15 £ ve 8.05 £. 1., 2. ve 3. sınıflar için ortalama ücret 82.2 £, 21.2 £ ve 13.3 £. (Ortalama ücretler medyan ücretlerden daha yüksektir).
+
+Bu nedenle, bu dağılım için merkezin daha iyi bir ölçüsü medyandır. Böylece 1. sınıf bilet 2. sınıf bir biletin yaklaşık 3 katı, 2. sınıf bilet ise 3. sınıfın yaklaşık iki katı değerinde idi.
+
+Çocuklar için ortalama ve medyan ücret, aynı sınıftaki yetişkinlerle karşılaştırıldığında daha yüksektir.
+
+```{r echo=TRUE}
+#Calculating Mean and Median Fare by Class
+titanic.df %>%
+  filter(Fare < 300)%>%
+    group_by(Pclass)%>%
+  summarise(
+    Average.fares = mean(Fare, na.rm = TRUE),
+    Median.fare  = median(Fare, na.rm = TRUE)
+  )
+#Calculating Mean and Median Fare by Class for children
+titanic.df %>%
+  filter(Fare < 300, Age <= 12)%>%
+  group_by(Pclass)%>%
+  summarise(
+    n = n(),
+    Average.fares = mean(Fare, na.rm = TRUE),
+    Median.fare  = median(Fare, na.rm = TRUE)
+  )
+#Calculating Mean and Median Fare by Class for adults
+titanic.df %>%
+  filter(Fare < 300, Age >= 12)%>%
+  group_by(Pclass)%>%
+  summarise(
+    n = n(),
+    Average.fare = mean(Fare, na.rm = TRUE),
+    Median.fare  = median(Fare, na.rm = TRUE)
+  )
+```
