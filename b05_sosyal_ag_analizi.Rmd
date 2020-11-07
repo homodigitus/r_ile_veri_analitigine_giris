@@ -1,0 +1,742 @@
+---
+title: "Sosyal Ağ Analizi"
+author: "Murat Öztürkmen"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    code_folding: hide
+    highlight: kate
+    lightbox: no
+    number_sections: yes
+    self_contained: yes
+    thumbnails: no
+  html_document:
+    df_print: paged
+---
+
+```{r setup, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+# Ağ Nedir?
+
+Burada ele alınan **ağ**, birbirine bağlı düğümlerin / köşelerin bir grafiğidir. Düğümler, ör. bir sosyal ağdaki insanlar, bir birlikte ifade ağındaki genler vb. Düğümler bağlar / uçlar yoluyla birbirine bağlıdır.
+
+# Ağ Analizi Bize Neyi İfade Eder?
+
+Ağ analizi, örn. sosyal veya profesyonel ağlardaki ilişkileri keşfetmek için kullanılabilir. Bu gibi durumlarda, genellikle aşağıdaki gibi sorular sorardık:
+
+-   Her kişinin kaç bağlantısı var?
+
+-   En bağlantılı (yani etkili veya "önemli") kişi kim?
+
+-   Birbirine sıkı sıkıya bağlı insan kümeleri var mı?
+
+-   İnsan kümelerini birbirine bağlayan birkaç kilit oyuncu var mı?
+
+-   vb.
+
+Bu cevaplar bize insanların nasıl etkileşim kurduğuna dair pek çok bilgi verebilir.
+
+# Game of Thrones Karakterleri Ağı
+
+Burada Game of Thrones karakterleri arasındaki ilişkilerden oluşan ağ verisi üzerinde uygulamalar yapılacaktır.
+
+İlk olarak aşağıdaki gibi gerekli kütüphaneleri ve verisetlerini içeri alalım:
+
+```{r echo=TRUE}
+# kütüphaneler
+library(tidyverse)
+library(igraph)
+library(statnet)
+
+# veriseti
+load("data/union_edges.RData")
+load("data/union_characters.RData")
+```
+
+Burada `union_edges` verisinde ilk iki sütunda `source` ve `target` alanları ile opsiyonel alanlar bulunmaktadır. Opsiyonel alanlar: `etkileşim tipi(type)`, `renk(color)` ve `çizgi tipi(line-type/lty)` şeklindedir.
+
+```{r echo=TRUE}
+
+# union_edges verisi
+glimpse(union_edges)
+```
+
+union\_characters verisinde de union\_edges verisinde source ya da target olan her bir karakter için birtakım özellikler yer almaktadır. Bu özellikler arasında cinsiyet, ev ve popülerlik gibi nitelikler yer almaktadır.
+
+```{r echo=TRUE}
+
+# union_characters verisi
+glimpse(union_characters)
+```
+
+Varsayılan olarak, yönlendirilmiş bir grafiğimiz vardır:
+
+```{r echo=TRUE}
+
+# yönlendirilmiş grafik
+union_graph <- graph_from_data_frame(union_edges, directed = TRUE, vertices = union_characters)
+```
+
+Başlıkları çizmek için kenar ve düğüm renklerini özetleyelim:
+
+```{r echo=TRUE}
+
+# tepe renkeleri
+color_vertices <- union_characters %>%
+  group_by(house, color) %>%
+  summarise(n = n()) %>%
+  filter(!is.na(color))
+```
+
+```{r echo=TRUE}
+
+# kenar renkleri
+colors_edges <- union_edges %>%
+  group_by(type, color) %>%
+  summarise(n = n()) %>%
+  filter(!is.na(color))
+```
+
+Şimdi, grafik nesnesini çizebiliriz (burada *Fruchterman-Reingold* düzeniyle):
+
+```{r warning=FALSE, message=FALSE, echo=FALSE}
+
+# grafik yerleşimi
+layout <- layout_with_fr(union_graph)
+
+pdf("g_o_t.pdf", width = 20, height = 15)
+# grafik çizimi
+plot(union_graph,
+     layout = layout,
+     vertex.label = gsub(" ", "\n", V(union_graph)$name),
+     vertex.shape = V(union_graph)$shape,
+     vertex.color = V(union_graph)$color, 
+     vertex.size = (V(union_graph)$popularity + 0.5) * 5, 
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.4,
+     edge.arrow.size = 0.3,
+     edge.color = E(union_graph)$color,
+     edge.lty = E(union_graph)$lty)
+
+legend("topright",
+       legend = c(NA, "Node color:", as.character(color_vertices$house), 
+                  NA, "Edge color:", as.character(colors_edges$type)), 
+       pch = 19,
+       col = c(NA, NA, color_vertices$color, 
+               NA, NA, colors_edges$color), 
+       pt.cex = 5, 
+       cex = 0.8, 
+       bty = "n", 
+       ncol = 1,
+       title = "")
+
+legend("topleft", 
+       legend = "", 
+       cex = 0.8, 
+       bty = "n", 
+       ncol = 1,
+       title = "Game of Thrones Family Ties")
+```
+
+```{r fig.width=40, fig.height=40}
+
+plot(union_graph,
+     layout = layout,
+     vertex.label = gsub(" ", "\n", V(union_graph)$name),
+     vertex.shape = V(union_graph)$shape,
+     vertex.color = V(union_graph)$color, 
+     vertex.size = (V(union_graph)$popularity + 0.5) * 5, 
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8,
+     edge.arrow.size = 0.5,
+     edge.color = E(union_graph)$color,
+     edge.lty = E(union_graph)$lty)
+
+legend("topleft", 
+       legend = c(NA, "Node color:", as.character(color_vertices$house), 
+                  NA, "Edge color:", as.character(colors_edges$type)), 
+       pch = 19,
+       col = c(NA, NA, color_vertices$color, NA, NA, colors_edges$color), 
+       pt.cex = 5, 
+       cex = 2, 
+       bty = "n", 
+       ncol = 1,
+       title = "") 
+
+legend("topleft", 
+       legend = "", 
+       cex = 4, 
+       bty = "n", 
+       ncol = 1,
+       title = "Game of Thrones Family Ties")
+```
+
+Düğüm rengi ana evleri göstermektedir, düğüm boyutu karakterin popülerliğini ve düğüm şeklini karakterin cinsiyeti şekillendirir (erkek için kare, kadın için daire). Kenar rengi etkileşim türünü gösterir.
+
+Gördüğümüz gibi, Game of Thrones dünyasından yalnızca bir karakter alt kümesiyle bile, ağ zaten oldukça büyüktür.
+
+Hemen görebildiğimiz şey, evler arasında yalnızca sınırlı bağlantı olduğu ve Greyjoy'ların, diğerlerinden hiçbiriyle bağı olmayan tek ev olduğu.
+
+# Ağ Analizi
+
+Bu ağdaki en önemli karakterlerin kim olduğunu nasıl öğreniriz?
+
+Diğer birçok karakterle bağlantısı olan bir karakteri "önemli" olarak kabul ederiz. Bize bu konuda daha fazla bilgi veren birkaç ağ özelliği vardır. Bunun için, ağın ebeveyn / çocuk ilişkilerini karşılıklı olarak hesaba katmaya yöneltilmediğini düşünelim.
+
+```{r echo=TRUE}
+union_graph_undir <- as.undirected(union_graph, mode = "collapse")
+```
+
+## Merkezilik (Centrality)
+
+**Merkezlik**, düğümlere giren / çıkan kenarların sayısını tanımlar. Yüksek merkeziyetli ağlarda birçok bağlantıya sahip birkaç düğüm bulunur, düşük merkeziyetli ağlarda benzer sayıda kenara sahip birçok düğüm bulunur.
+
+Tüm ağ için, merkezliliği, köşelerin derece (`centr_degree()`), yakınlığı (`centr_clo()`) veya özvektör merkeziliği (`centr_eigen()`) ile hesaplayabiliriz.
+
+```{r echo=TRUE}
+
+# derece ile merkezilik
+centr_degree(union_graph_undir, mode = "total")$centralization
+
+# yakınlık ile merkezilik
+centr_clo(union_graph_undir, mode = "total")$centralization
+
+# özvektörle merkezilik
+centr_eigen(union_graph_undir, directed = FALSE)$centralization
+```
+
+## Düğüm Derecesi
+
+**Düğüm derecesi (node degree)** veya **derece merkeziliği (degree centrality)**, bir düğümün ağda ne kadar merkezi olduğunu (yani, kaç tane giriş ve çıkış kenarı olduğunu veya bir kenar üzerinden doğrudan kaç tane diğer düğüme bağlı olduğunu) tanımlar.
+
+```{r echo=TRUE}
+
+union_graph_undir_degree <- igraph::degree(union_graph_undir, mode = "total")
+
+# düğüm sayısına göre standardize etme
+union_graph_undir_degree_std <- union_graph_undir_degree / (vcount(union_graph_undir) - 1)
+
+
+node_degree <- tibble::rownames_to_column(as.data.frame(cbind(union_graph_undir_degree)))
+
+node_degree_std <- tibble::rownames_to_column(as.data.frame(cbind(union_graph_undir_degree_std)))
+
+node_degree %>% 
+  inner_join(node_degree_std, by="rowname") %>% 
+  rename(degree = union_graph_undir_degree,
+         degree_std = union_graph_undir_degree_std) %>% 
+  arrange(desc(degree)) %>% 
+  top_n(10)
+```
+
+Bu durumda düğüm derecesi, bir karakterin kaç çocuğu ve eşi olduğunu yansıtır. 3 karısı ve birkaç çocuğu olan Quellon Greyjoy, Theon ve Asha / Yara'nın büyükbabası zirveye çıkıyor (elbette, Walder Frey'in tüm yavrularını ve eşlerini dahil etseydik, kolayca zirvede olacaktı ama ağ sonsuza kadar artacaktı. daha kafa karıştırıcı olurdu).
+
+## Yakınlık (Closeness)
+
+Bir düğümün **yakınlığı**, diğer tüm düğümlere olan mesafesini tanımlar. En yüksek yakınlığa sahip bir düğüm daha merkezidir ve bilgiyi diğer birçok düğüme yayabilir.
+
+```{r echo=TRUE}
+
+closeness <- igraph::closeness(union_graph_undir, mode = "total")
+
+# düğüm sayısına göre standardize etme
+closeness_std <- closeness / (vcount(union_graph_undir) - 1)
+
+node_closeness <- tibble::rownames_to_column(as.data.frame(cbind(closeness)))
+
+node_closeness_std <- tibble::rownames_to_column(as.data.frame(cbind(closeness_std)))
+
+node_closeness %>% 
+  inner_join(node_closeness_std, by="rowname") %>% 
+  rename(closeness = closeness,
+         closeness_std = closeness_std) %>% 
+  arrange(desc(closeness)) %>% 
+  top_n(10)
+```
+
+Game of Thrones'daki çeşitli hikayeleri ve evleri birbirine bağlayan en yakın karakterlerin tümü ana karakterleri çevreliyor.
+
+## Arasındalık Merkeziliği (betweennes centrality)
+
+**Arasındalık (betweenness)**, düğümler arasındaki en kısa yolların sayısını tanımlar. Ara merkezliği yüksek olan düğümler, diğer birçok düğüm arasındaki yoldadır, yani farklı düğüm grupları arasında anahtar bağlantılar veya köprüler olan kişilerdir. Bir sosyal ağda, bu düğümler çok önemli olacaktır çünkü bilgiyi geniş bir erişime sahip insanlara aktarmaları muhtemeldir.
+
+`igraph` işlevi `betweenness()`, köşe arasındalığını hesaplar, `edge_betweenness()` kenar arasındalığını hesaplar.
+
+```{r echo=TRUE}
+
+betweenness <- igraph::betweenness(union_graph_undir, directed = FALSE)
+
+# ikili düğüm sayısına göre standardize etme
+betweenness_std <- betweenness / ((vcount(union_graph_undir) - 1) * (vcount(union_graph_undir) - 2) / 2)
+
+node_betweenness <- tibble::rownames_to_column(as.data.frame(cbind(betweenness)))
+
+node_betweenness_std <- tibble::rownames_to_column(as.data.frame(cbind(betweenness_std)))
+
+node_betweenness %>% 
+  inner_join(node_betweenness_std, by="rowname") %>% 
+  rename(betweenness = betweenness,
+         betweenness_std = betweenness_std) %>% 
+  arrange(desc(betweenness)) %>% 
+  top_n(10)
+```
+
+```{r echo=TRUE}
+
+edge_betweenness <- igraph::edge_betweenness(union_graph_undir, directed = FALSE)
+
+data.frame(edge = attr(E(union_graph_undir), "vnames"),
+           betweenness = edge_betweenness) %>%
+  tibble::rownames_to_column() %>%
+  arrange(-betweenness) %>%
+  .[1:10, ]
+```
+
+Bu, şimdi aradaki düğüm noktasını tepe noktası.size ve kenar arasını kenar.genişliği olarak plot fonksiyonumuza besleyerek çizim yapabiliriz:
+
+```{r echo=TRUE}
+pdf("family_tree_GoT_betweenness.pdf", width = 35, height = 35)
+plot(union_graph_undir,
+     layout = layout,
+     vertex.label = gsub(" ", "\n", V(union_graph_undir)$name),
+     vertex.shape = V(union_graph_undir)$shape,
+     vertex.color = V(union_graph_undir)$color, 
+     vertex.size = betweenness * 0.001, 
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8,
+     edge.width = edge_betweenness * 0.01,
+     edge.arrow.size = 0.5,
+     edge.color = E(union_graph_undir)$color,
+     edge.lty = E(union_graph_undir)$lty)
+
+legend("topleft", 
+       legend = c("Node color:", as.character(color_vertices$house), NA, 
+                  "Edge color:", as.character(colors_edges$type)), 
+       pch = 19,
+       col = c(NA, color_vertices$color, NA, NA, colors_edges$color), 
+       pt.cex = 5, cex = 2, bty = "n", ncol = 1)
+
+dev.off()
+```
+
+Ned Stark, arasındalık skoru en yüksek olan karakterdir. Bu, kendisi ve çocukları (özellikle Sansa ve onun Tyrion ile ayarladığı evlilik) diğer evlerle bağlantı kurduğu ve hikayenin ortaya çıktığı merkezi noktalar olduğu için mantıklı geliyor. Bununla birlikte, burada kimin ağa dahil edilecek kadar önemli (örneğin Stark ataları) ve kimin olmayacağına (örneğin Targaryen ve Frey soyağacı olan tüm karmaşık karmaşa) seçimimizin bu sonucu verdiğini unutmamalıyız.
+
+```{r fig.width=35, fig.height=35}
+
+plot(union_graph_undir,
+     layout = layout,
+     vertex.label = gsub(" ", "\n", V(union_graph_undir)$name),
+     vertex.shape = V(union_graph_undir)$shape,
+     vertex.color = V(union_graph_undir)$color, 
+     vertex.size = betweenness * 0.001, 
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8,
+     edge.width = edge_betweenness * 0.01,
+     edge.arrow.size = 0.5,
+     edge.color = E(union_graph_undir)$color,
+     edge.lty = E(union_graph_undir)$lty)
+
+legend("topleft", 
+       legend = c("Node color:", as.character(color_vertices$house), NA, 
+                  "Edge color:", as.character(colors_edges$type)), 
+       pch = 19,
+       col = c(NA, color_vertices$color, NA, NA, colors_edges$color), 
+       pt.cex = 5, 
+       cex = 2, 
+       bty = "n", 
+       ncol = 1)
+
+```
+
+## Çap (Diameter)
+
+İki düğüm arasındaki en kısa yolun aksine, en uzun yolu veya çapı da hesaplayabiliriz:
+
+```{r echo=TRUE}
+
+# çap
+diameter(union_graph_undir, directed = FALSE)
+```
+
+Ağımızda en uzun yol 21 düğümü birbirine bağlar. 
+
+Bunu çizebiliriz:
+
+```{r echo=TRUE, fig.width=35, fig.height=35}
+
+union_graph_undir_diameter <- union_graph_undir
+node_diameter <- get.diameter(union_graph_undir_diameter,  directed = FALSE)
+
+V(union_graph_undir_diameter)$color <- scales::alpha(V(union_graph_undir_diameter)$color, alpha = 0.5)
+V(union_graph_undir_diameter)$size <- 2
+V(union_graph_undir_diameter)[node_diameter]$color <- "red"
+V(union_graph_undir_diameter)[node_diameter]$size <- 5
+
+E(union_graph_undir_diameter)$color <- "grey"
+E(union_graph_undir_diameter)$width <- 1
+E(union_graph_undir_diameter, path = node_diameter)$color <- "red"
+E(union_graph_undir_diameter, path = node_diameter)$width <- 5
+
+plot(union_graph_undir_diameter,
+     layout = layout,
+     vertex.label = gsub(" ", "\n", V(union_graph_undir_diameter)$name),
+     vertex.shape = V(union_graph_undir_diameter)$shape,
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8,
+     edge.arrow.size = 0.5,
+     edge.lty = E(union_graph_undir_diameter)$lty)
+
+legend("topleft", 
+       legend = c("Node color:", as.character(color_vertices$house), NA, 
+                  "Edge color:", as.character(colors_edges$type)), 
+       pch = 19,
+       col = c(NA, color_vertices$color, NA, NA, colors_edges$color), 
+       pt.cex = 5, 
+       cex = 2, 
+       bty = "n", 
+       ncol = 1)
+```
+
+```{r fig.width=40, fig.height=40, warning=FALSE, message=FALSE, echo=FALSE}
+pdf("family_tree_GoT_diameter.pdf", width = 35, height = 35)
+plot(union_graph_undir_diameter,
+     layout = layout,
+     vertex.label = gsub(" ", "\n", V(union_graph_undir_diameter)$name),
+     vertex.shape = V(union_graph_undir_diameter)$shape,
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8,
+     edge.arrow.size = 0.5,
+     edge.lty = E(union_graph_undir_diameter)$lty)
+legend("topleft", legend = c("Node color:", as.character(color_vertices$house), NA, "Edge color:", as.character(colors_edges$type)), pch = 19,
+       col = c(NA, color_vertices$color, NA, NA, colors_edges$color), pt.cex = 5, cex = 2, bty = "n", ncol = 1)
+dev.off()
+```
+
+
+## Geçişlilik (Transitivity)
+
+**Geçişlilik**, bir tepe noktasının bitişik köşelerinin bağlanma olasılığını ölçer. Buna bazen **kümeleme katsayısı** da denir.
+
+Tüm ağ için geçişliliği veya üçgenlerin bağlı üçlülere oranını hesaplayabiliriz:
+
+```{r}
+transitivity(union_graph_undir, type = "global")
+```
+
+Veya her bir düğüm için:
+
+```{r}
+transitivity <- data.frame(name = V(union_graph_undir)$name,
+      transitivity = transitivity(union_graph_undir, type = "local")) %>%
+  mutate(name = as.character(name))
+union_characters <- left_join(union_characters, transitivity, by = "name")
+transitivity %>%
+  arrange(-transitivity) %>%
+  .[1:10, ]
+```
+
+
+Bizimki bir aile ağı olduğu için, geçişliliği 1 olan karakterler ebeveynleri veya çocukları ile üçgenler oluşturur.
+
+
+## PageRank Merkeziliği
+
+[PageRank](https://en.wikipedia.org/wiki/Centrality#PageRank_centrality) (Google tarafından arama sonuçlarının önemini sıralamak için kullanılır) özvektör merkeziliğine benzer. Özvektör merkeziliği, sahip oldukları yüksek dereceli düğümlere bağlantı sayısına göre bir ağdaki düğümleri puanlar. Bu nedenle, düğüm öneminin bir ölçüsüdür. PageRank, benzer şekilde, çok sayıda gelen kenarları (veya bağlantıları) varsa düğümleri daha önemli kabul eder.
+
+```{r}
+page_rank <- page.rank(union_graph_undir, directed = FALSE)
+page_rank_centrality <- data.frame(name = names(page_rank$vector),
+      page_rank = page_rank$vector) %>%
+  mutate(name = as.character(name))
+union_characters <- left_join(union_characters, page_rank_centrality, by = "name")
+page_rank_centrality %>%
+  arrange(-page_rank) %>%
+  .[1:10, ]
+```
+
+Oberyn Martell, Quellon Greyjoy ve Walder Frey en yüksek sayıda eşe sahipler, bu nedenle çocuklar ve torunlar PageRank için en yüksek puanı alıyorlar.
+
+
+## Bir Ağın Matris Gösterimi
+
+Düğümler arasındaki bağlantılar, **bitişik(adjency)** matris olarak da gösterilebilir. Grafik nesnemizi `igraph`’ın `as_adjacency_matrix()` işlevi ile bitişik matrisine dönüştürebiliriz. İki düğüm arasında bir kenar olduğunda, matristeki bu alana 1 atanır, aksi takdirde 0 olur.
+
+```{r}
+adjacency <- as.matrix(as_adjacency_matrix(union_graph_undir))
+```
+
+
+
+## Özvektör Merkeziliği
+
+Şimdi bitişik matrisin özdeğerlerini ve özvektörlerini hesaplayabiliriz.
+
+```{r}
+# derece köşe matris
+degree_diag <- diag(1 / igraph::degree(union_graph_undir))
+
+# PageRank matris
+pagerank <- adjacency %*% degree_diag
+eigenvalues <- eigen(pagerank)
+```
+
+
+En yüksek öz değere sahip özvektör, çok sayıda egoya sahip olan veya birçok kenarlı köşelere bağlı olan köşeleri yüksek puanlar.
+
+
+```{r warning=FALSE, message=FALSE}
+eigenvector <- data.frame(name = rownames(pagerank),
+           eigenvector = as.numeric(eigenvalues$vectors[, which.max(eigenvalues$values)]))
+
+union_characters <- left_join(union_characters, eigenvector, by = "name")
+
+eigenvector %>%
+  arrange(eigenvector) %>%
+  .[1:10, ]
+```
+
+Son derece bağlantılı aile bağları nedeniyle (yani yalnızca bir avuç bağlantı vardır, ancak neredeyse hepsi üçgen şeklindedir), Greyjoy'lar en yüksek özdeğerlerle puanlanmıştır.
+
+Özvektör merkezilik puanlarını şu şekilde bulabiliriz:
+
+```{r}
+eigen_centrality <- igraph::eigen_centrality(union_graph_undir, directed = FALSE)
+
+eigen_centrality <- data.frame(name = names(eigen_centrality$vector),
+           eigen_centrality = eigen_centrality$vector) %>%
+  mutate(name = as.character(name))
+
+union_characters <- left_join(union_characters, eigen_centrality, eigenvector, by = "name")
+
+eigen_centrality %>%
+  arrange(-eigen_centrality) %>%
+  .[1:10, ]
+```
+
+
+Özvektör merkeziliğini göz önüne aldığımızda, Tywin ve çekirdek Lannister ailesi en yüksek skora sahiptir.
+
+
+## En Önemli Karakterler Kimlerdir?
+
+Game of Thrones'ta hangi karakterlerin en önemli olduklarına karar verebilmek için tüm düğüm-düzeyindeki bilgiyi kullanacağız. Bu tür düğüm seviyesi özellikleri, yapay öğrenme algoritmaları için girdi olarak da kullanılabilir.
+
+```{r fig.width=40, fig.height=20, warning=FALSE}
+
+node_degree <- data.frame(degree = union_graph_undir_degree,
+                          degree_std = union_graph_undir_degree_std) %>%
+  tibble::rownames_to_column()
+
+union_characters <- left_join(union_characters, node_degree, by = c("name" = "rowname"))
+
+union_characters %>%
+  filter(!is.na(house2)) %>%
+  dplyr::select(-contains("_std")) %>%
+  gather(x, y, degree:eigen_centrality) %>%
+  ggplot(aes(x = name, y = y, color = house2)) +
+    geom_point(size = 3) +
+    facet_grid(x ~ house2, scales = "free") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+
+```{r fig.width=40, fig.height=40, warning=FALSE, message=FALSE, echo=FALSE}
+pdf("GoT_centrality.pdf", width = 40, height = 20)
+union_characters %>%
+  filter(!is.na(house2)) %>%
+  dplyr::select(-contains("_std")) %>%
+  gather(x, y, degree:eigen_centrality) %>%
+  ggplot(aes(x = name, y = y, color = house2)) +
+    geom_point(size = 3) +
+    facet_grid(x ~ house2, scales = "free") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+dev.off()
+```
+
+Birlikte ele alındığında House Stark (özellikle Ned ve Sansa) ve House Lannister'ın (özellikle Tyrion) Game of Thrones'daki en önemli aile bağlantıları olduğunu söyleyebiliriz.
+
+
+## Düğüm Grupları
+
+Ayrıca ağımızdaki ikili (iki düğümlü çiftler), üçlüler (üç düğümlü gruplar) ve daha büyük klikleri analiz edebiliriz. Çiftler için `igraph`'dan `dyad_census()` veya `sna`'dan `dyad.census()` işlevini kullanabiliriz. Her ikisi de aynıdır ve bir Holland ve Leinhardt ikili nüfus sayımını hesaplar.
+
+```{r}
+#igraph::dyad_census(union_graph_undir)
+sna::dyad.census(adjacency)
+```
+
+Burada:
+
+* mut: Karşılıklı bağlantılı çiftlerin sayısı (bizim durumumuzda eşler).
+* asym: Karşılıklı olmayan bağlantıları olan çiftlerin sayısı (orijinal ağda: anne-çocuk ve baba-çocuk ilişkileri; ancak yönlendirilmemiş ağda yok).
+* null: Aralarında bağlantı olmayan çiftlerin sayısı.
+
+Benzeri üçlüler için de hesaplanabilir:
+
+```{r}
+#igraph::triad_census(union_graph_undir)
+sna::triad.census(adjacency)
+triad.classify(adjacency, mode = "graph")
+```
+
+Ayrıca belirttiğimiz herhangi bir uzunluktaki yolların ve döngülerin sayısını burada da hesaplayabiliriz, örn. uzunluk <= 5. Kenarlar için, verilen maksimum uzunluğa kadar tüm yollar veya döngüler için sayıların toplamını elde ederiz. Köşeler / düğümler için, her düğümün ait olduğu yolların veya döngülerin sayısını elde ederiz.
+
+```{r}
+node_kpath <- kpath.census(adjacency, maxlen = 5, mode = "graph", tabulate.by.vertex = TRUE, dyadic.tabulation = "sum")
+edge_kpath <- kpath.census(adjacency, maxlen = 5, mode = "graph", tabulate.by.vertex = FALSE)
+edge_kpath
+```
+
+
+Bunu çizebiliriz de:
+
+```{r}
+node_kcycle <- kcycle.census(adjacency, maxlen = 8, mode = "graph", tabulate.by.vertex = TRUE, cycle.comembership = "sum")
+edge_kcycle <- kcycle.census(adjacency, maxlen = 8, mode = "graph", tabulate.by.vertex = FALSE)
+edge_kcycle
+```
+
+
+```{r fig.width=20, fig.height=20}
+node_kcycle_reduced <- node_kcycle$cycle.comemb
+node_kcycle_reduced <- node_kcycle_reduced[which(rowSums(node_kcycle_reduced) > 0), which(colSums(node_kcycle_reduced) > 0)]
+gplot(node_kcycle_reduced,
+      label.cex = 0.5, 
+      vertex.cex = 0.75,
+      displaylabels = TRUE,
+      edge.col = "grey")
+```
+
+```{r fig.width=40, fig.height=40, warning=FALSE, message=FALSE, echo=FALSE}
+pdf("node_kcycle.pdf", width = 20, height = 20)
+gplot(node_kcycle_reduced,
+      label.cex = 0.5, 
+      vertex.cex = 0.75,
+      displaylabels = TRUE,
+      edge.col = "grey")
+dev.off()
+```
+
+Bu ağdaki en büyük düğüm grubu üçtür, yani tüm ebeveyn / çocuk ilişkileri. Bu nedenle, hepsini çizmek gerçekten mantıklı değil, ancak bunları çizebilir ve renklendirebiliriz:
+
+```{r fig.width=20, fig.height=20, eval=FALSE}
+vcol <- rep("grey80", vcount(union_graph_undir))
+# highlight first of largest cliques
+vcol[unlist(largest_cliques(union_graph_undir)[[1]])] <- "red"
+plot(union_graph_undir,
+     layout = layout,
+     vertex.label = gsub(" ", "\n", V(union_graph_undir)$name),
+     vertex.shape = V(union_graph_undir)$shape,
+     vertex.color = vcol, 
+     vertex.size = 5, 
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8,
+     edge.width = 2,
+     edge.arrow.size = 0.5,
+     edge.color = E(union_graph_undir)$color,
+     edge.lty = E(union_graph_undir)$lty)
+```
+
+
+
+## Kümeleme
+
+Ayrıca düğüm gruplarını uç aralıklarına göre kümeleyerek ağımızdaki grupları da arayabiliriz:
+
+```{r fig.width=20, fig.height=20}
+ceb <- cluster_edge_betweenness(union_graph_undir)
+modularity(ceb)
+plot(ceb,
+     union_graph_undir,
+     layout = layout,
+     vertex.label = gsub(" ", "\n", V(union_graph_undir)$name),
+     vertex.shape = V(union_graph_undir)$shape,
+     vertex.size = (V(union_graph_undir)$popularity + 0.5) * 5, 
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8)
+```
+
+```{r fig.width=40, fig.height=40, warning=FALSE, message=FALSE, echo=FALSE}
+pdf("cluster_edge_betweenness.pdf", width = 20, height = 20)
+plot(ceb,
+     union_graph_undir,
+     layout = layout,
+     vertex.label = gsub(" ", "\n", V(union_graph_undir)$name),
+     vertex.shape = V(union_graph_undir)$shape,
+     vertex.size = (V(union_graph_undir)$popularity + 0.5) * 5, 
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8)
+dev.off()
+```
+
+
+Veya çoğaltma etiketlerine göre:
+
+```{r fig.width=20, fig.height=20}
+clp <- cluster_label_prop(union_graph_undir)
+plot(clp,
+     union_graph_undir,
+     layout = layout,
+     vertex.label = gsub(" ", "\n", V(union_graph_undir)$name),
+     vertex.shape = V(union_graph_undir)$shape,
+     vertex.size = (V(union_graph_undir)$popularity + 0.5) * 5, 
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8)
+```
+
+```{r fig.width=40, fig.height=40, warning=FALSE, message=FALSE, echo=FALSE}
+pdf("cluster_label_prop.pdf", width = 20, height = 20)
+plot(clp,
+     union_graph_undir,
+     layout = layout,
+     vertex.label = gsub(" ", "\n", V(union_graph_undir)$name),
+     vertex.shape = V(union_graph_undir)$shape,
+     vertex.size = (V(union_graph_undir)$popularity + 0.5) * 5, 
+     vertex.frame.color = "gray", 
+     vertex.label.color = "black", 
+     vertex.label.cex = 0.8)
+dev.off()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
