@@ -1,0 +1,115 @@
+---
+title: "R ile Web Kazıma"
+author: "Murat Öztürkmen"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    code_folding: hide
+    highlight: kate
+    lightbox: no
+    number_sections: yes
+    self_contained: yes
+    thumbnails: no
+  html_document:
+    df_print: paged
+---
+
+```{r setup, echo=FALSE, cache=FALSE, warnings=FALSE, messages=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+# Verilerle Dünyamız Verisinin R ile Kazınması
+
+Veri İçinde Dünyamız, dünyadaki kıtlıklarla ilgili verileri derledi ve bir tabloda kullanıma sundu. `rvest()` paketi, indirmeyi kolaylaştırmak için "xml2" ve "httr" paketlerinin etrafındaki sarmalayıcılar için kullanılır. Veriler indirildikten sonra, HTML ve XML'i işleyebiliriz.
+
+Gerekli kütüphanelerin çağırılması:
+
+```{r}
+library(rvest)
+library(xml2)
+library(tidyverse)
+```
+
+İlgili url sayfasını bir parametreye saklayalım:
+
+```{r}
+url_data <- "https://ourworldindata.org/famines"
+```
+
+Wiki URL değişkeni oluşturulduktan sonra, verileri okumak ve değiştirmek için aşağıdaki işlevleri kullanacağız.
+
+-   `read_html()`
+
+-   `html_nodes`
+
+-   `html_table`
+
+-   `[[1]]`
+
+Ardından, tüm HTML'yi R'ye okumak için `rvest :: read_html()` kullanalım:
+
+```{r}
+url_data %>% 
+  read_html()
+```
+
+Bir sonraki adıma geçmek için, html\_nodes için XPath bulmalıyız. Tamamlanacak adımlar aşağıdadır:
+
+-   URL'ye gidin: <https://ourworldindata.org/famines>
+
+-   Çıkarılacak popülasyon için tabloyu bulun.
+
+-   Tabloya sağ tıklayın -\> İncele'ye tıklayın
+
+-   Sağ tarafta bir açılır pencere görünecek ve Öğe'yi seçmesi gerekecek
+
+-   Tablo öğesine sağ tıklayın -\> Kopyala -\> Xpath'i Kopyala
+
+Aşağıdaki işlevler için `html_nodes()` ve `html_table()` işlevlerini kullanacağız. `html_nodes()` işlevi, XPath ve CSS seçicilerini kullanarak HTML belgelerinden parçaları çıkarır. `html_table()` işlevi, bir HTML tablosunu bir veri çerçevesine ayrıştırır. Aşağıdakinin yürütülmesi üzerine fark edeceğiniz bir şey, Veri altında yalnızca bir "1 Listesi" gösterecek olmasıdır.
+
+```{r}
+css_selector <- "#tablepress-73"
+```
+
+Rvest :: read\_html () ile HTML'yi R'ye nasıl okuyacağınızı zaten gördünüz. Ardından, yalnızca CSS seçiciniz tarafından tanımlanan öğeyi seçmek için rvest :: html\_node () kullanın.
+
+```{r}
+url_data %>% 
+  read_html() %>% 
+  html_node(css = css_selector)
+```
+
+Veriler hala HTML'de. Çıkışı bir veri çerçevesine dönüştürmek için rvest :: html\_table () kullanın. Rvest :: html\_table () 'ın tibble değil data.frame nesnesi döndürdüğüne dikkat edin. Bir tibble dönüştürmek için as\_tibble () kullanın
+
+```{r}
+url_data %>% 
+  read_html() %>% 
+  html_node(css = css_selector) %>% 
+  html_table() %>% 
+  as_tibble()
+```
+
+Artık veriler R'de düzenlenmeye hazır.
+
+Html\_table () 'ın yalnızca sağladığınız HTML öğesi bir tablo olduğunda çalışacağını unutmayın. Örneğin, bir paragraf metni çıkarmak isteseydik, bunun yerine html\_text () kullanırdık.
+
+```{r}
+css_selector_paragraph <- 
+  "body > main > article > div.content-wrapper > div.offset-content > div > div > section:nth-child(1) > div > div:nth-child(1) > p:nth-child(9)"
+
+url_data %>% 
+  read_html() %>% 
+  html_node(css = css_selector_paragraph) %>% 
+  html_text()
+```

@@ -1,0 +1,207 @@
+---
+title: "Sosyal Medya Analizi"
+author: "Murat Öztürkmen"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    code_folding: hide
+    highlight: kate
+    lightbox: no
+    number_sections: yes
+    self_contained: yes
+    thumbnails: no
+  html_document:
+    df_print: paged
+---
+
+```{r setup, echo=FALSE, cache=FALSE, warnings=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+# Youtube Video İstatistikleri
+
+İlk olarak youtube için bir API anahtarı temin edilmelidir. Bunun için [Google API Console](https://console.developers.google.com/apis) adresinden bir adet Youtube Data API anahtarı alınabilir. API anahtarı alındıktan sonra `vosonSML` kütüphanesinden `Authenticate()` işlevi ile doğrulaması gerçekleştirilebilir.
+
+``` {.R}
+myAPIKey <- "xxxxx"
+youtubeAuth <- Authenticate("youtube", apiKey = myAPIKey)
+```
+
+```{r echo=FALSE}
+library(vosonSML)
+library(igraph)
+library(tidyverse)
+
+myAPIKey <- "xxx"
+youtubeAuth <- Authenticate("youtube", apiKey = myAPIKey)
+```
+
+# Youtube Verisinin Çekilmesi
+
+YouTube yorum verilerini toplamak için YouTube video kimlikleri (YouTube URL'sinde "=" harfinden sonraki kısım) gereklidir. Bu kimlikler manuel olarak çıkarılabilir veya aşağıdaki komutla URL'lerden otomatik olarak çıkarılabilir:
+
+```{r}
+
+videoIDs <- GetYoutubeVideoIDs(c("https://www.youtube.com/watch?v=xs9XUjHvZsM",
+                                 "https://youtu.be/gkvdYmkczPY"))
+```
+
+YouTube video kimliklerini içeren karakter vektörü daha sonra `Collect()` işlevine bir parametre olarak iletilir (aşağıdaki kod ayrıca `Collect()` 'e nakledilen YouTube erişim belirtecini gösterir). Aşağıdaki örnekte, "Çöpçüler Kralı" başlıklı bir YouTube videosundan yorumlar topluyoruz. 5442 adet yorum mevcut. Yorum verileri 12 Kasım 2020'de toplandı: o zamana ait toplam yorum sayısı 5000'in üzerindeydi, ancak toplamak için `maxComments` parametresini kullanıyoruz en fazla 500 üst düzey yorum (ve bu üst düzey yorumlara yapılan tüm yanıt yorumları).
+
+```{r}
+videoIDs <- GetYoutubeVideoIDs("https://www.youtube.com/watch?v=xs9XUjHvZsM")
+youtubeData <- youtubeAuth %>%
+               Collect(videoIDs = videoIDs, maxComments = 500, writeToFile = TRUE)
+```
+
+`Collect()` işlevi şu bağımsız değişkenleri alır (YouTube verilerini toplamak için kullanıldığında): kimlik bilgisi (`Authenticate()` 'den oluşturulan nesne "youtube" sınıf adıyla (yukarıda bunu boru yoluyla iletiyoruz), videoID'ler (bir veya daha fazlasını belirten karakter vektörü) youtube video kimlikleri), maxComments (her videodan kaç tane üst düzey yorumun toplanacağını belirten sayısal tam sayı; varsayılan 1e + 13'tür), writeToFile (döndürülen veri çerçevesinin diske bir `.rds` dosyası olarak yazılıp yazılmayacağı; varsayılan `FALSE`'dir), ve ayrıntılı (veri toplama hakkında bilgi verilip verilmeyeceği; varsayılan `FALSE`'tır).
+
+`Collect()`, aşağıdaki yapıya sahip standart bir R veri çerçevesi (tibble değil) döndürür (veriler anonimliğin korunması için değiştirilmiştir):
+
+```{r}
+glimpse(youtubeData)
+```
+
+# Kaydedilen Verinin Çağırılması
+
+Daha önce youtube'dan çekilmiş veriyi tekrar okumak istersek `readRDS` işlevini kullanabiliriz:
+
+```{r}
+#youtubeData <- readRDS("2020-11-12_172227-YoutubeData.rds")
+```
+
+# Youtube Ağları
+
+Şu anda YouTube verilerini kullanarak iki tür ağ oluşturmak mümkündür: (1) aktör ağı ve (2) etkinlik ağı.
+
+## Aktör Ağı
+
+YouTube aktör ağında düğümler, videolara yorum yapan kullanıcılardır (ve videoların kendileri ağa özel düğümler olarak dahil edilmiştir) ve kenarlar, yorumlarda kullanıcılar arasındaki etkileşimlerdir. Bir videoya yönlendirilen bir yorum olan üst düzey bir yorumu, üst düzey bir yoruma yönelik bir yorum olan yanıt yorumundan ayırt edebiliriz. YouTube kullanıcı arayüzü, bir kullanıcının bir yanıtı başka bir yanıta yönlendirmesine izin vermez. Bununla birlikte, kullanıcılar, yorumlarına yanıt verdikleri kişinin kullanıcı adıyla başlayarak (ve genellikle kullanıcı adının başına "\@" ekleyerek) "yanıtı yanıtla" işlevini elde edebilir. Dolayısıyla, j tarafından yazılan en üst düzey bir yoruma yanıt verirsem veya yorumunun başına j'nin kullanıcı adını eklersem, i kullanıcısından j kullanıcısına bir avantaj olacaktır.
+
+```{r}
+actorNetwork <- youtubeData %>% Create("actor") %>% AddText(youtubeData)
+actorGraph <- actorNetwork %>% Graph(writeToFile = TRUE)
+```
+
+`Create("actor")`, "düğümler" ve "kenarlar" adlı iki veri çerçevesi içeren adlandırılmış bir liste döndürür (aşağıdakiler anonimliğin korunması için değiştirilmiştir).
+
+Yukarıda, açıklama metni verilerini ağ veri çerçevesine eklemek için `AddText()` kullanıldığına ve bir kenar özelliği olarak saklandığına dikkat edin. Ayrıca, YouTube ağı oluşturma ile kullanıldığında, "yanıta yanıtla" yorumlarını çıkarmak için `AddText()` 'e iletilebilecek isteğe bağlı bir replies\_from\_text parametresi olduğunu unutmayın.
+
+Bu liste daha sonra bir `igraph` grafik nesnesi döndüren `Graph()` 'e iletilir. Yukarıdakileri tek bir kod satırı kullanarak elde etmenin mümkün olduğunu unutmayın:
+
+```{r}
+actorGraph <- youtubeData %>% Create("actor") %>% AddText(youtubeData) %>% 
+              Graph(writeToFile = TRUE)
+```
+
+YouTube aktör ağı düğümü, bir grafik öznitelik türü içerir ("youtube" olarak ayarlanmış). Düğüm özellikleri şunlardır: ad (YouTube'un benzersiz kullanıcı kimliği olan Kanal Kimliği), ekran\_adı (kullanıcıların görüntülediği adı), düğüm\_türü ("aktör" veya "video") ve etiket (kimlik ve ekran adının bir birleşimi). Edge özellikleri şunlardır: video\_id (verilerinin toplandığı videonun kimliği), comment\_id (yorumun kimliği), edge\_type (kenarın bir 'yorum' olup olmadığı, yani üst düzey yorum, 'yanıt-yorum Örneğin, en üst düzey yoruma yanıt verme veya yanıta yanıt verme veya videoyla birlikte gönderilen metni dahil etmenin bir yolu olarak videoyu kendisine bağlayan özel bir kenar olan "kendi kendine döngü". Yukarıdaki örnekte, daha önceki AddText () kullanımımız nedeniyle, yorum, yanıt veya videoyla ilişkili metin olan bir vosonTxt\_comment kenar niteliği de vardır.
+
+Örnek YouTube aktör ağı 522 düğüm ve 604 kenar içerir. Aşağıdakiler, 500 üst düzey yorum olduğunu (koleksiyonu bu sayı ile sınırladık), üst düzey yorumlara 103 yanıt olduğunu (not: metne gömülü yanıtları toplamak için AddText () kullanmadık) ve videodan kendi kendine tek bir döngü.
+
+```{r}
+table(igraph::E(actorGraph)$edge_type)
+```
+
+Video düğümünü tanımlamak için kırmızıyı kullanarak bu ağı görselleştirebiliriz:
+
+```{r}
+V(actorGraph)$color <- ifelse(V(actorGraph)$node_type=="video", "red", "grey")
+
+png("youtube_actor.png", width=600, height=600)
+plot(actorGraph, vertex.label="", vertex.size=4, edge.arrow.size=0.5)
+dev.off()
+```
+
+```{r}
+plot(actorGraph, vertex.label="", vertex.size=4, edge.arrow.size=0.5)
+```
+
+Aşağıdaki, yalnızca üst düzey yorumlara verilen yanıtları içeren bir alt ağ oluşturur. Diğer kenarları (üst düzey yorumlar ve kendi kendine döngü) kaldırırken, bir sayı izole düğümleri (bağlantısı olmayan düğümler) oluştururuz: bunlar da kaldırılır. Ayrıca, orman yangınları hakkında çevrimiçi yorumlarda bulunan belirli terimleri içeren yorumlar yazan kişileri belirtmek için kırmızıyı kullandık.
+
+```{r}
+g2 <- delete.edges(actorGraph, which(E(actorGraph)$edge_type!="reply-comment"))
+#By deleting edges other than "reply-comment", we now have 417 isolates
+#> length(which(degree(g2)==0))
+#[1] 417
+
+g2 <- delete.vertices(g2, which(degree(g2)==0))                    #remove the isolates
+
+V(g2)$color <- "grey"
+ind <- tail_of(actorGraph,grep("arson|backburn|climate change",tolower(E(g2)$vosonTxt_comment)))
+V(g2)$color[ind] <- "red"
+
+png("youtube_actor_reply.png", width=600, height=600)
+plot(g2, vertex.label="", vertex.size=4, edge.arrow.size=0.5)
+dev.off()
+```
+
+```{r}
+plot(g2, vertex.label="", vertex.size=4, edge.arrow.size=0.5)
+```
+
+Son olarak, `AddVideoData()` işlevi, ağ verilerini ek video bilgileriyle tamamlar:
+
+```{r}
+actorNetwork_withVideoInfo <- actorNetwork %>% AddVideoData(youtubeAuth)
+```
+
+`AddVideoData()`, "düğümler" (örnekte `actorNetwork` listesindeki veri çerçevesiyle aynı), "kenarlar" (bu, üç ek sütuna sahiptir: "video\_title", "video\_description", "video\_published\_at) adlı üç veri çerçevesi içeren adlandırılmış bir liste döndürür ") Ve yeni bir veri çerçevesi" videoları "(anonimliğin korunması için aşağıdakiler değiştirilmiştir):
+
+```{r}
+actorNetwork_withVideoInfo$nodes
+
+actorNetwork_withVideoInfo$edges
+
+actorNetwork_withVideoInfo$videos
+```
+
+`AddVideoData()` 'nın isteğe bağlı olarak "düğümler" ve "kenarlar" veri çerçevelerindeki video kimliğine referansları video yayıncısının kanal kimliğiyle değiştirebileceği de belirtilmelidir (bu, `actorSubOnly` parametresini TRUE olarak ayarlayarak yapılır.
+
+## Etkinlik Ağı
+
+YouTube etkinlik ağında, düğümler yorumlar veya videolardır (videolar bir başlangıç yorumunu temsil eder).
+
+```{r}
+activityNetwork <- youtubeData %>% Create("activity") %>% AddText(youtubeData)
+activityGraph   <- activityNetwork %>% Graph(writeToFile = TRUE)
+```
+
+`Create("activity")`, "düğümler" ve "kenarlar" adlı iki veri çerçevesi içeren adlandırılmış bir liste döndürür (aşağıdakiler anonimliğin korunması için değiştirilmiştir):
+
+```{r}
+activityNetwork$nodes
+
+activityNetwork$edges
+```
+
+Yukarıda, yorum metin verilerini ağ veri çerçevesine eklemek için `AddText()` kullanıldığını ve bir düğüm özelliği olarak saklandığını unutmayın. Bu liste daha sonra bir igraph grafik nesnesi döndüren Graph () 'e iletilir (bu anonimleştirilmiştir):
+
+Örnek YouTube etkinlik ağı, 580 düğüm ve 579 kenar içerir. Aşağıda, videonun kırmızı bir düğümle gösterildiği ağın bir igrahp görselleştirmesi ve mavi şu terimlerden birini içeren yorumları belirtir: "sokak", "Kemal", "dram".
+
+```{r}
+V(activityGraph)$color <- "grey"
+V(activityGraph)$color[which(V(activityGraph)$node_type=="video")] <- "red"
+ind <- grep("sokak|kemal|dram",tolower(V(activityGraph)$vosonTxt_comment))
+V(activityGraph)$color[ind] <- "blue"
+
+png("youtube_activity.png", width=600, height=600)
+plot(activityGraph, vertex.label="", vertex.size=4, edge.arrow.size=0.5)
+dev.off()
+```
+
+```{r}
+plot(activityGraph, vertex.label="", vertex.size=4, edge.arrow.size=0.5)
+```
+
+YouTube etkinlik ağı (kırmızı düğüm videodur, mavi düğümler belirli terimlerden bahseden yorumlardır).

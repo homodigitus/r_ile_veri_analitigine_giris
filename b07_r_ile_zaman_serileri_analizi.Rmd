@@ -1,0 +1,874 @@
+---
+title: "R ile Zaman Serileri Analizi"
+author: "Murat Öztürkmen"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    code_folding: hide
+    highlight: kate
+    lightbox: no
+    number_sections: yes
+    self_contained: yes
+    thumbnails: no
+  html_document:
+    df_print: paged
+---
+
+```{r setup, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+# Veri Çekme ve Yuvarlama Hesaplamaları
+
+R ile zaman serileriyle çalışmaya yönelik bir araç koleksiyonu, veri işlemede herhangi bir tahminci için önemli bir beceridir. `timetk` paketi, temel veri düzenleme araçlarını içerir. Bu altbölümde göreceklerimiz:
+
+-   Zamana Göre Özetleme - Zamana dayalı toplamalar için
+
+-   Zamana Göre Filtreleme - Karmaşık zamana dayalı filtreleme için
+
+-   Zamana Göre Doldurma - Boşlukları doldurmak ve düşükten yüksek frekansa geçmek için
+
+-   Kaydırma - Herhangi bir işlevi kaydırma (yuvarlanma) işlevine dönüştürmek için
+
+Ek kavramlar:
+
+-   `Imputation` - Dolgu için Gerekli (Bkz. Düşük - Yüksek Frekans)
+
+-   Gelişmiş Filtreleme - Yeni ekleme süresi% + zaman infix işlemini kullanma (Bkz. Dolgu Verileri: Düşük - Yüksek Frekans)
+
+-   Görselleştirme - tüm görselleştirmeler için `plot_time_series()`
+
+Gerekli kütüphaneler:
+
+```{r}
+library(tidyverse)
+library(tidyquant)
+library(timetk)
+library(lubridate)
+library(modeltime)
+library(tidymodels)
+```
+
+## Veri Seti
+
+Burada `FANG` veri seti kullanılacaktır:
+
+-   Günlük,
+
+-   Düzensiz (tatiller ve haftasonları eksik)
+
+-   4 grup var (FB, AMZN, NFLX ve GOOG)
+
+```{r}
+glimpse(FANG)
+```
+
+`adjusted` sütunu, her bir gün için düzeltilmil kapanış fiyatlarını içerir.
+
+```{r}
+FANG %>%
+  group_by(symbol) %>%
+  plot_time_series(date, adjusted, .facet_ncol = 2, .interactive = FALSE)
+```
+
+Hacim sütunu gün için işlem hacmini (hisse senedinin işlem görme sayısı) içerir.
+
+```{r}
+FANG %>%
+  group_by(symbol) %>%
+  plot_time_series(date, volume, .facet_ncol = 2, .interactive = FALSE)
+```
+
+## Zamana Göre Özetleme
+
+summarise\_by\_time() periyoda göre toplulaştırma yapar:
+
+-   Periyot toplulaştırma - `SUM()`
+
+-   Periyot Düzgünleştirme - `AVERAGE()`, `FIRST()`, `LAST()`
+
+### Periyot Özetleme
+
+Toplam işlem hacmini çeyrek bazında alalım:
+
+-   `SUM()` kullanalım
+
+-   `.by = "quarter"` ile toplulaştıralım.
+
+```{r}
+FANG %>%
+  group_by(symbol) %>%
+  summarise_by_time(
+    date, .by = "quarter",
+    volume = SUM(volume)
+  ) %>%
+  plot_time_series(date, volume, .facet_ncol = 2, .interactive = FALSE, .y_intercept = 0)
+```
+
+### Periyot Düzgünleştirme
+
+Her aydaki ilk değeri alalım:
+
+-   Verileri azaltma (yani yumuşatma) etkisi olan ilk değeri elde etmek için `FIRST()` kullanabiliriz. `MEAN()` veya `MEDIAN()` kullanabiliriz.
+
+-   Aya göre toplamak için zamana göre özetlemeyi kullanabilriz: `.by = "month"`.
+
+```{r}
+FANG %>%
+  group_by(symbol) %>%
+  summarise_by_time(
+    date, 
+    .by = "month",
+    adjusted = FIRST(adjusted)
+  ) %>%
+  plot_time_series(date, adjusted, .facet_ncol = 2, .interactive = FALSE)
+```
+
+## Zamana Göre Filtreleme
+
+Düzeltilmiş hisse senedi fiyatlarını 2013'ün 3. çeyreği için filtreleyelim:
+
+-   `.start_date = "2013-09"`: `"2013-09-01"` e dönüştürülür
+
+-   `.end_date = "2013"`: `"2013-12-31"` e dönüştürülür
+
+-   `%+time` ve `% -time` kullanarak filtrelemenin daha gelişmiş bir örneği "Dolgu Verileri: Düşükten Yüksek Frekansa" gösterilmektedir.
+
+```{r}
+FANG %>%
+  group_by(symbol) %>%
+  filter_by_time(date, "2013-09", "2013") %>%
+  plot_time_series(date, adjusted, .facet_ncol = 2, .interactive = FALSE)
+```
+
+## Veri Doldurma
+
+Boşlukları doldurmak (doldurmak) ve düşük frekanstan yüksek frekansa geçmek için kullanılır. Bu işlev, zaman damgalarını doldurmak ve genişletmek için `padr` paketini kullanır.
+
+### Boşlukları Doldurma
+
+Düzensiz veriyi düzenlileştirelim:
+
+-   Doldurulmuş değerleri `NA` olarak bırakacağız.
+
+-   `.pad_value` kullanarak bir değer ekleyebiliriz veya `ts_impute_vec ()` (daha sonra gösterilmektedir) gibi bir işlevi kullanarak doldurabiliriz.
+
+```{r}
+FANG %>%
+  group_by(symbol) %>%
+  pad_by_time(date, .by = "auto") # Guesses .by = "day"
+```
+
+### Düşükten Yüksek Frekansa
+
+Başlangıç tarihinden itibaren 1 ay boyunca Günlük zaman damgası aralıklarından Saatlik zaman damgası aralıklarına gidelim. Eksik değerleri uygulaylım.
+
+-   `.by = "hour"` günlükten saatliğe doldurur.
+
+-   Saatlik verilerin hesaplanması, `period = 1` olduğunda doğrusal enterpolasyon yapan `ts_impute_vec()` ile gerçekleştirilir.
+
+-   Filtreleme, aşağıdakiler kullanılarak gerçekleştirilir:
+
+-   <div>
+
+    -   "start": Bir serinin başlangıcını gösteren özel bir anahtar kelime
+
+    </div>
+
+-   <div>
+
+    -   `FIRST(date) %+time%` "1 month": Sıradaki ilk tarihi seçme ve ardından özel bir ek işlemi, %+time%, `"add time"` adı verilir. Bu durumda "1 month" eklerim.
+
+    </div>
+
+```{r}
+FANG %>%
+  group_by(symbol) %>%
+  pad_by_time(date, .by = "hour") %>%
+  mutate_at(vars(open:adjusted), .funs = ts_impute_vec, period = 1) %>%
+  filter_by_time(date, "start", FIRST(date) %+time% "1 month") %>%
+  plot_time_series(date, adjusted, .facet_ncol = 2, .interactive = FALSE) 
+```
+
+## Kayan (Hareketli) Hesaplamalar
+
+`slidify()` fonksiyonu, herhangi bir fonksiyonu kayan (yuvarlanan) bir pencere fonksiyonuna dönüştürüyor. `tibbletime::rollify()` 'den kavramlar alır ve bunları R paketi kaydırıcısı ile geliştirir.
+
+### Hareketli Ortalamalar
+
+Kısmi pencere yuvarlanması ve başlangıç ve bitiş pencereleri ile "ortalanmış" basit bir hareketli ortalama hesaplayalım:
+
+-   `slidfiy()`, `AVERAGE()` işlevini hareketli ortalamaya dönüştürür.
+
+```{r}
+# Make the rolling function
+roll_avg_30 <- slidify(.f = AVERAGE, .period = 30, .align = "center", .partial = TRUE)
+# Apply the rolling function
+FANG %>%
+  select(symbol, date, adjusted) %>%
+  group_by(symbol) %>%
+  # Apply Sliding Function
+  mutate(rolling_avg_30 = roll_avg_30(adjusted)) %>%
+  pivot_longer(cols = c(adjusted, rolling_avg_30)) %>%
+  plot_time_series(date, value, .color_var = name,
+                   .facet_ncol = 2, .smooth = FALSE, 
+                   .interactive = FALSE)
+```
+
+Basit hareketli hesaplamalar için (hareketli ortalama), bu işlemi `slidify_vec()` ile daha hızlı gerçekleştirebiliriz - Basit özet hareketleri için vektörize edilmiş bir yuvarlama işlevi (ör. `mean()`, `sd()`, `sum()`, vb.)
+
+```{r}
+FANG %>%
+  select(symbol, date, adjusted) %>%
+  group_by(symbol) %>%
+  # Apply roll apply Function
+  mutate(rolling_avg_30 = slidify_vec(adjusted,  ~ AVERAGE(.), 
+                                      .period = 30, .partial = TRUE))
+```
+
+### Hareketli Regresyon
+
+Hareketli regresyon hesaplayalım:
+
+-   Bu, birden fazla sütunun dahil edilmesini gerektiren karmaşık bir kayan (yuvarlanan) hesaplamadır.
+
+-   `slidify()` bunun için oluşturulmuştur.
+
+-   Bir işlevi ayarlamak için çok değişkenli `purrr` ..1, ..2, ..3, vb. gösterimini kullanacağız.
+
+```{r}
+# Rolling regressions are easy to implement using `.unlist = FALSE`
+lm_roll <- slidify(~ lm(..1 ~ ..2 + ..3), .period = 90, 
+                   .unlist = FALSE, .align = "right")
+FANG %>%
+  select(symbol, date, adjusted, volume) %>%
+  group_by(symbol) %>%
+  mutate(numeric_date = as.numeric(date)) %>%
+  # Apply rolling regression
+  mutate(rolling_lm = lm_roll(adjusted, volume, numeric_date)) %>%
+  filter(!is.na(rolling_lm))
+```
+
+# Zaman Serileri Grafikleri
+
+Bu altbölümde, aşağıdakileri yapan bir zaman serisi çizim işlevi olan `plot_time_series()` üzerine odaklanılmıştır:
+
+-   Etkileşimli `plotly` çizimleri (uygulamaları keşfetmek ve parlak hale getirmek için harika)
+
+-   20'den fazla `ggplot2` satırını ve `plotly` kodunu birleştirir
+
+-   Birçok zaman serisine iyi ölçeklenir
+
+-   Etkileşimli grafikten statik `ggplot2` grafiklerine dönüştürülebilir
+
+## Tek Bir Zaman Serisinin Grafiği
+
+30 dakikalık bir örnekleme aralığında megawatt cinsinden enerji talebini içeren popüler bir zaman serisi olan `taylor_30_min` ile başlayalım. Bu tek bir zaman serisidir.
+
+```{r}
+glimpse(taylor_30_min)
+```
+
+`plot_time_series()` işlevi varsayılan olarak etkileşimli bir grafiksel grafik oluşturur.
+
+-   İlk 2 bağımsız değişken olarak zaman içinde değişen tarih değişkenini (zaman tabanlı sütun, `.date_var`) ve sayısal değişkeni (`.value`) sağlamanız yeterlidir.
+
+-   `.interactive = TRUE` olduğunda, `.plotly_slider = TRUE`, grafiğin altına bir tarih kaydırıcısı ekler.
+
+```{r}
+taylor_30_min %>% 
+  plot_time_series(date, 
+                   value, 
+                   .interactive = TRUE, # <- Toggle this TRUE/FALSE
+                   .plotly_slider = TRUE)
+```
+
+## Zaman Serisi Gruplarının Çizimi
+
+Şimdi, M4 yarışmasından günlük sıklıkta örneklenen 4 zaman serisinin bir örneği olan `m4_daily` zaman serisi grupları içeren bir veri kümesine geçelim.
+
+Gruplanmış verileri görselleştirmek, veri kümesini `plot_time_series()` işlevine aktarmadan önce `group_by()` ile gruplamak kadar basittir. Anahtar noktaları:
+
+-   Gruplar 2 şekilde eklenebilir: `group_by()` ile veya grup eklemek için `…` kullanılarak.
+
+-   Gruplar daha sonra `facet` 'a dönüştürülür.
+
+-   `.facet_ncol = 2`, 2 sütunlu yönlü bir çizim döndürür
+
+-   `.facet_scales = "free"`, her grafiğin x ve y ekseninin diğer grafiklerden bağımsız olarak ölçeklenmesine izin verir
+
+```{r}
+m4_daily %>%
+  group_by(id) %>%
+  plot_time_series(date, 
+                   value, 
+                   .facet_ncol = 2, 
+                   .facet_scales = "free",
+                   .interactive = TRUE)
+```
+
+## Düzgünleştirici ile Trend Çizimi
+
+Merak ediyor olabilirsiniz, tüm çizimlerde görünen o mavi çizginin ne olduğunu. Buna daha düzgünleştirici deniyor ve bir zaman serisindeki gürültü aracılığıyla eğilimi görselleştirmenin gerçekten harika bir yoludur.
+
+Düzgünleştiriciyi şu şekilde ayarlayabiliriz:
+
+-   Açma / kapama: .`smooth = TRUE/FALSE`
+
+-   Satırın esnekliğini değiştirin: .`smooth_period = "52 weeks"` (30 günlük veriler) veya `.smooth_span = 0,25` (verilerin% 25'i) deneyin. Varsayılan olarak, `.smooth_span` öncelik alır.
+
+```{r}
+m4_weekly %>%
+  group_by(id) %>%
+  plot_time_series(date, 
+                   value, 
+                   # Smoother
+                   .smooth = TRUE, 
+                   .smooth_span = 0.25,           # <- Uses % of data
+                   # .smooth_period = "52 weeks", # <- Uses windows of data
+                   .facet_ncol = 2, 
+                   .facet_scales = "free",
+                   .interactive = TRUE)
+```
+
+## Dönüşümleri ve Alt-Grupları Görselleştirme
+
+Birden çok grup içeren saatlik veri kümesine geçelim. Şunları gösterebiliriz:
+
+-   `.value`'ya günlük dönüşümü
+
+-   Alt grupları vurgulamak için `.color_var` kullanalım.
+
+Amaç, grupları facet grafiklerde sergilemek, ancak aynı anda değere bir `log()` dönüşümü yaparken veriler içindeki haftalık pencereleri (haftalık alt gruplar, `week()` kullanarak) vurgulamaktır. Bunu yapmak çok basit:
+
+-   `.value = log(value)` Günlük Dönüşümünü uygular
+
+-   Veriler gruplandırılmamıştır, bu nedenle bir veya daha fazla faset sütunu sağlamak için `…` kullanarak dahili olarak facetlar ekleyebiliriz.
+
+-   `.color_var = week(date)` Tarih sütunu bir `lubridate :: week()` numarasına dönüştürülür. Renk, hafta numaralarının her birine uygulanır.
+
+```{r}
+m4_hourly %>%
+  group_by(id) %>%
+  plot_time_series(date, 
+                   log(value),             # Apply a Log Transformation
+                   .color_var = week(date),      # Color applied to Week transformation
+                   # Facet formatting
+                   .facet_ncol = 2, 
+                   .facet_scales = "free", 
+                   .interactive = TRUE)
+```
+
+## Statik `ggplot2` Görselleştirmeleri ve Özelleştirme
+
+Tüm görselleştirmeler etkileşimli çizimden (uygulamaları keşfetmek ve parlak uygulamalar için harika) statik `ggplot2` görselleştirmelerine (raporlar için harika) dönüştürülebilir.
+
+-   Etkileşimli / Statik arasında geçiş yapılabilir: `.interaktif = TRUE / FALSE`
+
+-   Başlık, açıklama, x ve y ekseni etiketleri ekleyin: `.title`, `.color_lab`, .`x_lab` ve `.y_lab`
+
+```{r}
+taylor_30_min %>%
+  plot_time_series(date, 
+                   value, 
+                   .color_var = month(date, label = TRUE),
+                   .interactive = FALSE,   # <- Returns static ggplot
+                   # Customization
+                   .title = "Taylor's MegaWatt Data",
+                   .x_lab = "Date (30-min intervals)",
+                   .y_lab = "Energy Demand (MW)",
+                   .color_lab = "Month") +
+  scale_y_continuous(labels = scales::comma_format())
+```
+
+# Otokorelasyon
+
+Burada aşağıdaki grafikleri etkileşimli bir şekilde sunan `plot_acf_diagnostics()` işlevine odaklanacağız:
+
+-   ACF ce PACF çizimleri.
+
+-   CCF (Cross Correlation) çizimleri.
+
+Etkileşimli çizimler için `plotly`, statik çizimler için `ggplot2` paketlerini kullanmaktadır.
+
+## Otokorelasyon
+
+Otokorelasyon, bir zaman serisinin gecikmeli değerlerine bağlı korelasyonun varlığıdır. Meslekten olmayan kişilerin terimleriyle bu, geçmiş tarihin gelecekteki tarihle ilgili olduğu anlamına gelir. Bu ilişkiyi bir ACF grafiği ile görselleştirebiliriz.
+
+İlk olarak, `plot_time_series()` kullanarak `taylor_30_min` verisine bakacağımız zaman serisini çizelim.
+
+```{r}
+taylor_30_min %>%
+    plot_time_series(date, 
+                     value, 
+                     .interactive = T)
+```
+
+Bu seri, yaklaşık 3 ay boyunca 30 dakikalık aralıklarla alınan saatlik elektrik talebini temsil etmektedir. Serideki otokorelasyonu yeni bir fonksiyon olan `plot_acf_diagnostics()` kullanarak görselleştirebiliriz.
+
+```{r}
+taylor_30_min %>%
+    plot_acf_diagnostics(date, 
+                         value, 
+                         .interactive = T)
+```
+
+`plot_acf_diagnostics()` 'den şunu elde ederiz:
+
+-   **ACF Grafiği**: Seri ile her aşamalı gecikme (x ekseni) arasındaki ilişkiyi ifade eden otomatik düzeltme (y ekseni).
+
+-   **PACF Grafiği**: Kısmi otokorelasyon ve gecikmeler. Kısmi Otokorelasyon, her progresif ACF'nin öngörülebilirliğe ne kadar katkıda bulunduğunu gösterir. Başka bir deyişle, birbirleriyle ilişkili gecikmelerin ağırlığı azaltılır, böylece en önemli gecikmeler mevcuttur.
+
+Bu 2 görselleştirme, ilişkileri modellememize ve tahmine dayalı tahminler geliştirmemize yardımcı olur:
+
+-   Mevsimsellik: Bir ilişkiyi modellemek için kullanabileceğimiz Olası Fourier Serileri
+
+-   Tahmin Edici Olarak Gecikmeler: Modellerimize dahil edilecek önemli gecikmeler bulabiliriz.
+
+## Gruplanmış ACF ve PACF Grafikleri
+
+Genellikle zaman serilerinde birden fazla seriyle uğraşırız - bunlara gruplar denir. 4 grup içeren farklı bir saatlik veri kümesine, `m4_hourly`'ye geçelim.
+
+```{r}
+m4_hourly %>%
+    group_by(id) %>%
+    plot_time_series(date, 
+                     value, 
+                     .facet_ncol = 2, 
+                     .facet_scale = "free",
+                     .interactive = T)
+```
+
+ACF ve PACF grafiklerini `plot_acf_diagnostics ()` kullanarak kolayca elde edebiliriz. `.lags = "14 days"` kullanarak 14 günlük gecikmeleri izole edebiliriz.
+
+```{r}
+m4_hourly %>%
+    group_by(id) %>%
+    plot_acf_diagnostics(
+        date, 
+        value,               # ACF & PACF
+        .lags = "14 days",         # 14-Days of hourly lags
+        .interactive = T
+    )
+```
+
+Grupları kullanmak, zaman serilerini her zaman serisini ayrı ayrı analiz etmekten çok daha hızlı değerlendirmemize yardımcı olur. 4 zaman serisini hızlı bir şekilde değerlendirebiliyoruz.
+
+Gruplanmış analiz, zaman serileri arasındaki benzerlikleri ve farklılıkları vurgulayabilir. Günlük sıklığa ek olarak H150 ve H410'da 1 haftada ani artışlar olduğunu görebiliriz.
+
+## Çapraz Korelasyon (Cross Correlation)
+
+Buradaki son örnek, dış yordayıcıları bulmak için önemli bir teknik olan Çapraz Korelasyondur. Walmart için haftalık satışları, çeşitli departmanlardan oluşan zaman serisi gruplarını ve sıcaklık ve yakıt fiyatı dahil olmak üzere birkaç (potansiyel) öngörücüyü içeren yeni bir zaman serisi olan `walmart_sales_weekly` ile başlıyoruz.
+
+```{r}
+glimpse(walmart_sales_weekly)
+```
+
+Haftalık Satışlar ile Sıcaklık ve Yakıt Fiyatı arasında `.ccf_vars` kullanarak Çapraz Korelasyonları görselleştirebiliriz.
+
+```{r}
+walmart_sales_weekly %>%
+    select(id, Date, Weekly_Sales, Temperature, Fuel_Price) %>%
+    group_by(id) %>%
+    plot_acf_diagnostics(
+        Date, 
+        Weekly_Sales,        # ACF & PACF
+        .ccf_vars           = c(Temperature, Fuel_Price),   # CCFs
+        .show_ccf_vars_only = TRUE,                         # Toggle just CCFs?
+        .lags               = "2 years",                    # Lags
+        .interactive        = T
+    )
+```
+
+# Mevsimsellik
+
+`plot_seasonal_diagnostics ()`, zaman serisi mevsimselliğini görselleştirmek için etkileşimli ve ölçeklenebilir bir işlevdir.
+
+Aşağıdaki mantığı kullanarak dahil edilecek bir alt özellik yelpazesini tespit etmek için dahili hesaplamalar gerçekleştirilir:
+
+-   Minimum öznitelik, ardışık zaman damgaları arasındaki medyan farkına göre seçilir
+
+-   Maksimum öznitelik, 2 tam döneme göre seçilir.
+
+Örnek: 2 haftadan uzun süren saatlik zaman damgası verileri şu özelliklere sahip olacaktır: `"hour"`, `"wday.lbl"` ve `"week"`.
+
+Bu işlev, `dplyr :: group_by ()` ile yapılan gruplanmış `data.frame` ve `tibbles`'a uyumludur.
+
+Gruplanmış veriler için, döndürülen otomatik özellik seçimi, alt gruplar içindeki tüm özelliklerin bir koleksiyonudur. Bu, bazı gruplar için anlamsız olsalar bile ekstra özelliklerin geri döndüğü anlamına gelir.
+
+`.value` parametresi dönüşümlere uyar (ör. `.value = log (sales)`)
+
+Mevsimsel çizimler:
+
+```{r}
+taylor_30_min %>%
+    plot_seasonal_diagnostics(date, 
+                              value, 
+                              .interactive = T)
+```
+
+Gruplanmış mevsimsel çizimler:
+
+```{r}
+m4_hourly %>%
+    group_by(id) %>%
+    plot_seasonal_diagnostics(date, 
+                              value, 
+                              .interactive = T)
+```
+
+## STL Diagnostikleri
+
+`plot_stl_diagnostics ()` işlevi Mevsimsel Eğilim-Düşük ayrışımı (Seasonal-Trend-Loess decomposition) üretir. İşlev, veri çerçeveleri üzerinde çalışması ve `dplyr` gruplarıyla çalışmak üzere tasarlanması açısından "derli toplu" dur.
+
+STL yöntemi, temel alınan `stats :: stl ()` yöntemini kullanarak zaman serisi ayrıştırmasını uygular. Ayrıştırma, "mevsim" ve "eğilim" bileşenlerini "kalan" bırakarak "gözlemlenen" değerlerden ayırır.
+
+Kullanıcı iki parametreyi kontrol edebilir: `.frequency` ve `.trend`.
+
+-   `.frequency` parametresi, "gözlemlenen" değerlerden kaldırılan "mevsim" bileşenini ayarlar.
+
+-   `.trend` parametresi, kullanılan trend penceresini (`stl ()` 'den `t.window` parametresi) ayarlar.
+
+Kullanıcı, zamana dayalı süreler (ör. "6 hafta") veya sayısal değerler (ör. 180) veya zaman ölçeğine göre sıklığı ve / veya eğilimi otomatik olarak seçen "otomatik" olarak hem `.frequency` hem de `.trend` sağlayabilir.
+
+```{r}
+m4_hourly %>%
+    group_by(id) %>%
+    plot_stl_diagnostics(
+        date, 
+        value,
+        .frequency = "auto", 
+        .trend = "auto",
+        .feature_set = c("observed", "season", "trend", "remainder"),
+        .interactive = T)
+```
+
+# Anomali Tespiti
+
+Anormallik algılama, zaman serisi analizinin önemli bir parçasıdır:
+
+-   Anormallikleri tespit etmek özel olayları ifade edebilir
+
+-   Anormallikleri temizlemek tahmin hatasını iyileştirebilir
+
+Burada, anormallikleri ölçekte görselleştirmek ve otomatik olarak tespit etmek için `plot_anomaly_diagnostics ()` ve `tk_anomaly_diagnostics ()` işlevlerini ele alacağız.
+
+Veri seti:
+
+```{r}
+glimpse(walmart_sales_weekly)
+```
+
+Anormalliklerle ilgili verileri elde etmek için ön işleme fonksiyonu olan `tk_anomaly_diagnostics ()` kullanıyoruz.
+
+Anormallik tespiti için `tk_anomaly_diagnostics ()` yöntemi, zaman serilerindeki aykırı değerleri tespit etmek için 2 adımlı bir süreç uygular.
+
+-   1.adım: STL ayrıştırma ile trendden ve mevsimsellikten ayırma.
+
+-   2.adım: anomli tespiti.
+
+"Trend" ve "mevsim" (mevsimsellik) kaldırıldıktan sonra, "kalan" üzerinde anormallik tespiti yapılır. Anormallikler belirlenir ve sınırlar (`recomposed_l1` ve `recomposed_l2`) belirlenir.
+
+Anormallik Algılama Yöntemi, medyan +/- 25'lik bir iç çeyrek aralığı (IQR) kullanır.
+
+IQR Ayarı, alfa parametresi: Varsayılan alfa = 0,05 ile sınırlar, 25/75 taban çizgisini 3 IQR Faktörü 3 (3X) ile genişleterek belirlenir. IQR Faktörü = 0.15 / alfa (dolayısıyla alfa = 0.05 ile 3X):
+
+-   Sınırları kontrol eden IQR Faktörünü artırmak için alfa'yı azaltın, bu da aykırı değer olmayı zorlaştırır.
+
+-   Aykırı değer olmayı kolaylaştırmak için alfa'yı artırın.
+
+-   IQR aykırı değer algılama yöntemi, tahmini :: tsoutliers () içinde kullanılır.
+
+-   Twitter'ın `AnomalyDetection` paketi tarafından benzer bir aykırı değer algılama yöntemi kullanılır.
+
+-   Hem Twitter hem de `forecast::tsoutliers` yöntemleri Business Science'ın anomalize paketinde uygulanmıştır.
+
+```{r}
+walmart_sales_weekly %>%
+  group_by(Store, Dept) %>%
+  tk_anomaly_diagnostics(Date, 
+                         Weekly_Sales)
+```
+
+## Anomalilerin Görselleştirilmesi
+
+```{r}
+walmart_sales_weekly %>%
+  group_by(Store, Dept) %>%
+  plot_anomaly_diagnostics(Date, 
+                           Weekly_Sales, 
+                           .facet_ncol = 2)
+```
+
+# Zaman Serileri Modelleme: `modeltime`
+
+## 1.adım: verinin alınıp eğitim ve test verisi olarak ayrıştırılması
+
+Veri seti:
+
+```{r}
+m750 <- m4_monthly %>% filter(id == "M750")
+```
+
+Görselleştirme:
+
+```{r}
+m750 %>%
+  plot_time_series(date, 
+                   value, 
+                   .interactive = T)
+```
+
+Zaman serisini bölme:
+
+```{r}
+# Split Data 80/20
+splits <- initial_time_split(m750, prop = 0.9)
+```
+
+## 2.adım: birçok model hazırlayıp eğitme
+
+`modeltime` ve `parsnip` birleştirerek kolayca düzinelerce tahmin modeli oluşturabiliriz. Ön işleme eklemek için iş akışları arayüzünü de kullanabiliriz! Tahmin olasılıklarınız sonsuzdur. Birkaç temel model geliştirelim:
+
+-   ARIMA
+
+-   Exponential Smoothing
+
+-   Linear Regression
+
+-   MARS (Multivariate Adaptive Regression Splines)
+
+modeltime modelleri (ör. `arima_reg()`), modelde bir tarih veya tarih saat özelliği ile oluşturulur. Çoğu modelin `fit` gibi bir formül içerdiğini göreceksiniz (`değer ~ tarih, veri`).
+
+`parsnip` modelleri (ör. `linear_reg ()`) tipik olarak tarih özelliklerine sahip olmamalıdır, ancak tarihlerin türevlerini içerebilir (ör. Ay, yıl vb.). Sıklıkla`fit (değer ~ sayısal (tarih) + ay (tarih), veri)` gibi formüller göreceksiniz.
+
+### model 1: auto-arima
+
+```{r}
+# Model 1: auto_arima ----
+model_fit_arima_no_boost <- arima_reg() %>%
+    set_engine(engine = "auto_arima") %>%
+    fit(value ~ date, 
+        data = training(splits))
+#> frequency = 12 observations per 1 year
+```
+
+### model 2: boosted auto-arima
+
+```{r}
+# Model 2: arima_boost ----
+model_fit_arima_boosted <- arima_boost(
+    min_n = 2,
+    learn_rate = 0.015
+) %>%
+    set_engine(engine = "auto_arima_xgboost") %>%
+    fit(value ~ date + as.numeric(date) + factor(month(date, label = TRUE), ordered = F),
+        data = training(splits))
+#> frequency = 12 observations per 1 year
+```
+
+### model 3: exponential smoothing
+
+```{r}
+# Model 3: ets Error-Trend-Season (ETS) ----
+model_fit_ets <- exp_smoothing() %>%
+    set_engine(engine = "ets") %>%
+    fit(value ~ date, data = training(splits))
+#> frequency = 12 observations per 1 year
+```
+
+### model 4: prophet
+
+```{r}
+# Model 4: prophet ----
+model_fit_prophet <- prophet_reg() %>%
+    set_engine(engine = "prophet") %>%
+    fit(value ~ date, data = training(splits))
+#> Disabling weekly seasonality. Run prophet with weekly.seasonality=TRUE to override this.
+#> Disabling daily seasonality. Run prophet with daily.seasonality=TRUE to override this.
+```
+
+### model 5: lineer regression
+
+```{r}
+# Model 5: lm ----
+model_fit_lm <- linear_reg() %>%
+    set_engine("lm") %>%
+    fit(value ~ as.numeric(date) + factor(month(date, label = TRUE), ordered = FALSE),
+        data = training(splits))
+```
+
+### model 6: MARS
+
+```{r}
+# Model 6: earth Multivariate Adaptive Regression Spline ----
+model_spec_mars <- mars(mode = "regression") %>%
+    set_engine("earth") 
+recipe_spec <- recipe(value ~ date, data = training(splits)) %>%
+    step_date(date, features = "month", ordinal = FALSE) %>%
+    step_mutate(date_num = as.numeric(date)) %>%
+    step_normalize(date_num) %>%
+    step_rm(date)
+  
+wflw_fit_mars <- workflow() %>%
+    add_recipe(recipe_spec) %>%
+    add_model(model_spec_mars) %>%
+    fit(training(splits))
+```
+
+## 3.adım: modellerin Model Table'a aktarılması
+
+```{r}
+models_tbl <- modeltime_table(
+    model_fit_arima_no_boost,
+    model_fit_arima_boosted,
+    model_fit_ets,
+    model_fit_prophet,
+    model_fit_lm,
+    wflw_fit_mars
+)
+models_tbl
+```
+
+## 4.adım: test verisine karşı model kalibrasyonu
+
+```{r}
+calibration_tbl <- models_tbl %>%
+    modeltime_calibrate(new_data = testing(splits))
+
+calibration_tbl
+```
+
+## 5.adım: test verisi tahmini ve doğruluğu geliştirme
+
+Test Hatasını görselleştirmek, etkileşimli grafiksel görselleştirmeyi kullanarak yapmak kolaydır (Legend kullanarak modellerin görünürlüğünü değiştirebiliriz).
+
+```{r}
+calibration_tbl %>%
+    modeltime_forecast(
+        new_data    = testing(splits),
+        actual_data = m750
+    ) %>%
+    plot_modeltime_forecast(
+      .legend_max_width = 25, # For mobile screens
+      .interactive      = T
+    )
+```
+
+Test seti tahminini görselleştirmekten:
+
+-   Model 1 ve 2: ARIMA & ARIMA Boost iyi performans gösteriyor. Auto ARIMA kullandığımız için her iki modelde de "otomatik" bileşenler var. XGBoost bileşeni, belirtilen parametrelere sahiptir. Ayarlayarak daha iyi bir doğruluk elde edebiliriz, ancak ARIMA bileşeni bu veriler üzerinde iyi çalıştığı için ek iyileştirme düşük olabilir.
+
+-   Model 3: ETS (M, A, A) en iyi performansı gösteriyor. % 80 güven aralığı, grubun en dar olanıdır ve bu, bekleme setinin iyi modellendiğini gösterir.
+
+-   Model 4: PROPHET, ARIMA modelleriyle karşılaştırılabilir, ancak biraz daha geniş bir test hatası güven aralığına sahiptir.
+
+-   Model 5: LM, yerel trendi abartıyor. Bunun nedeni, eğilim bileşeninin değişim noktalarını hesaba katmayan basit bir doğrusal çizgi olmasıdır.
+
+-   Model 6: EARTH yerel eğilime fazla uyuyor. Bunun nedeni, değişim noktalarının sayısını ayarlamadığımız için, algoritmanın değişim noktalarını otomatik olarak hesaplamasıdır.
+
+Doğruluk metrikleri:
+
+-   **MAE** - Mean absolute error, `mae()`
+
+-   **MAPE** - Mean absolute percentage error, `mape()`
+
+-   **MASE** - Mean absolute scaled error, `mase()`
+
+-   **SMAPE** - Symmetric mean absolute percentage error, `smape()`
+
+-   **RMSE** - Root mean squared error, `rmse()`
+
+-   **RSQ** - R-squared, `rsq()`
+
+```{r}
+calibration_tbl %>%
+    modeltime_accuracy() %>%
+    table_modeltime_accuracy(
+        .interactive = T
+    )
+```
+
+Doğruluk ölçümlerinden:
+
+-   Model 3: ETS, 77 MAE ile burada açıkça kazanan modeldir.
+
+-   Model 6: MARS, yerel trendi aşıyor. Bu, 0.55'in R-Karesinde çıkar.
+
+## 6.adım: tüm veri için yeniden eğitilip gelecek tahminlerinin türetilmesi
+
+```{r}
+refit_tbl <- calibration_tbl %>%
+    modeltime_refit(data = m750)
+refit_tbl %>%
+    modeltime_forecast(h = "3 years", actual_data = m750) %>%
+    plot_modeltime_forecast(
+      .legend_max_width = 25, # For mobile screens
+      .interactive      = T
+    )
+```
+
+Modellerin hepsi değişti! (Evet - bu yeniden eğitme için kritik noktadır)
+
+-   LM modeli şimdi çok daha iyi görünüyor çünkü doğrusal eğilim çizgisi artık daha uzun vadeli eğilimi izleyen yeni verilere uyuyor.
+
+-   EARTH modeli, kısa vadeli eğilimi daha çok temsil eden bir eğilime sahiptir.
+
+-   PROPHET modelinin EARTH modeline çok benzer bir eğilimi vardır (bunun nedeni, her iki modelleme algoritmasının eğilimi modellemek için değişim noktaları kullanması ve peygamberin otomatik algoritmasının uyum sağlamada daha iyi bir iş çıkarmasıdır).
+
+-   ETS modeli (M, A, A) yerine (A, A, A) olarak değiştirildi.
+
+-   ARIMA modeli güncellendi ve yükselişi daha iyi yakaladı.
+
+Bu, yeniden eğitmenin (potansiyel) faydasıdır.
+
+Çoğu zaman yeniden eğitmemek iyi bir fikirdir. Yeniden eğitme:
+
+-   Modelinizi ve ön işleme adımlarınızı alır
+
+-   Modeli yeni verilere yeniler
+
+-   Herhangi bir otomasyonu yeniden hesaplar. Bu şunları içerir:
+
+-   <div>
+
+    -   Doğrusal Model için uzun vadeli eğilimi yeniden hesaplamak
+
+    </div>
+
+-   <div>
+
+    -   Dünya Modeli için değişim noktalarını yeniden hesaplama
+
+    </div>
+
+-   <div>
+
+    -   ARIMA ve ETS parametrelerini yeniden hesaplama
+
+    </div>
+
+-   Tüm parametre seçimlerini korur. Bu şunları içerir:
+
+-   <div>
+
+    -   Boosted ARIMA min\_n = 2'deki XGBoost Parametreleri, learn\_rate = 0.015.
+
+    </div>
+
+-   <div>
+
+    -   Otomatik hesaplamalar olmayan diğer varsayılanlar kullanılır.
+
+    </div>
